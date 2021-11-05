@@ -79,7 +79,7 @@ struct MyCache putIntoMyCache(char *key, char *value, int maxAge, int valueLengt
 
 // find the valid value (in valid time) of the key; update the last used time;
 // return the value if found, "NA" otherwise.
-struct MyCache getFromMyCache(char *key, char value[], int *valueLength, struct MyCache myCache){
+struct MyCache getFromMyCache(char *key, char *value, int *valueLength, struct MyCache myCache){
     // printf("key:%s, value:%s", key, value);
     strcpy(value, "NA");
     int i;

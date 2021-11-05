@@ -27,7 +27,7 @@ struct MyCache{
 
 struct MyCache initializeMyCache(int cacheSize);
 struct MyCache putIntoMyCache(char *key, char *value, int maxAge, int valueLength, struct MyCache myCache);
-struct MyCache getFromMyCache(char *key, char value[], int *valueLength, struct MyCache myCache);
+struct MyCache getFromMyCache(char *key, char *value, int *valueLength, struct MyCache myCache);
 int getAge(char *key, struct MyCache myCache);
 
 #endif // MY_CACHE_
