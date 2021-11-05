@@ -6,27 +6,14 @@
 #include <string.h>
 
 #define MaxSingleLineLength 200
-#define BufferSize 10485760
-#define MaxLine 1000
 
 struct RequestInfo{
-    char GET[MaxSingleLineLength];
-    char Host[MaxSingleLineLength];
-    int Port;
+    int type; //-1: error; 1: GET; 2: CONNECT.
+    char url[MaxSingleLineLength];
+    char host[MaxSingleLineLength];
+    char port[10];
 };
 
-struct ResponseInfo{
-    int hasCacheControl; // 0: false; 1: true.
-    int needCache;  // 0: false; 1: true.
-    int maxAge; //in seconds; default 3600
-    int contentLength;
-    int headerLength;
-};
-
-// void AnalyzeRequestSingleLine (char lineInfo[], struct RequestInfo *requestInfo);
-struct RequestInfo AnalyzeRequest (char text[]);
-
-// void AnalyzeResponseSingleLine (char lineInfo[], struct ResponseInfo *responseInfo);
-struct ResponseInfo AnalyzeResponse (char text[]);
+struct RequestInfo AnalyzeRequest (char *text);
 
 #endif // FILE_ANALYSIS_
