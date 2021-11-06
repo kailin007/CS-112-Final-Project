@@ -84,7 +84,7 @@ struct ResponseInfo AnalyzeResponse (char* text){
 
     buffer = text;
     if((p1 = strstr(buffer, "\r\n\r\n")) != NULL){
-        responseInfo.headerLength = p1 - buffer + 4; // + 1 = + \n
+        responseInfo.headerLength = p1 - buffer + 4; // + \r\n\r\n
         printf("headerLength: %d\n", responseInfo.headerLength);
     }
 
