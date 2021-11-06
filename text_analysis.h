@@ -14,6 +14,15 @@ struct RequestInfo{
     char port[10];
 };
 
-struct RequestInfo AnalyzeRequest (char *text);
+struct ResponseInfo{
+    int hasCacheControl; // 0: false; 1: true.
+    int needCache;  // 0: false; 1: true.
+    int maxAge; // in seconds; default 3600
+    int contentLength;
+    int headerLength;
+};
+
+struct RequestInfo AnalyzeRequest (char* text);
+struct ResponseInfo AnalyzeResponse (char* text);
 
 #endif // FILE_ANALYSIS_
