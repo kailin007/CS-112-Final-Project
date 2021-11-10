@@ -27,7 +27,7 @@ void MakeKey(char *Host, char *Port, char *GET, char *key)
 }
 
 
-int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct MyCache myCache)
+int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache myCache)
 {
     struct sockaddr_in serveraddr, serveraddr1; /* server's addr */
     struct sockaddr_in clientaddr;              /* client addr */
@@ -60,12 +60,13 @@ int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct M
     bzero(temp, BUFSIZE);
     // find in cache
 
-    MakeKey(requestInfo.host, requestInfo.port, requestInfo.url, key);
+    MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
     getFromMyCache(key, responseInCache, responseLength, &myCache);
     printf("key forage succ\n");
+    printf("host name is !!!!!!!!!!!: %s,,,,%s,,,,,%s\n", requestInfo->host, requestInfo->port, requestInfo->url);
     if (strcmp(responseInCache, "NA") != 0)
     {
-
+        printf("a\n");
         age = getAge(key, myCache);
         printf("Age: %d\n", age);
         sprintf(ageLine, "Age: %d\n", age);
@@ -86,6 +87,7 @@ int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct M
     }
     else
     {
+        //printf("%s\n",request);
         // forward to another server
         /* socket: create the socket to server*/
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -93,10 +95,10 @@ int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct M
             error("ERROR opening socket");
 
         /* gethostbyname: get the server's DNS entry */
-        server = gethostbyname(requestInfo.host);
+        server = gethostbyname(requestInfo->host);
         if (server == NULL)
         {
-            fprintf(stderr, "ERROR, no such host as %s\n", requestInfo.host);
+            fprintf(stderr, "ERROR, no such host as %s\n", requestInfo->host);
             exit(0);
         }
 
@@ -105,12 +107,13 @@ int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct M
         serveraddr1.sin_family = AF_INET;
         bcopy((char *)server->h_addr,
               (char *)&serveraddr1.sin_addr.s_addr, server->h_length);
-        serveraddr1.sin_port = htons(requestInfo.port);
+        serveraddr1.sin_port = htons(atoi(requestInfo->port));
 
         /* connect: create a connection with the server */
         if (connect(sockfd, &serveraddr1, sizeof(serveraddr1)) < 0)
             error("ERROR connecting");
 
+        
         // forward to server
         n = write(sockfd, request, strlen(request));
         if (n < 0)
@@ -135,7 +138,7 @@ int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct M
         }
 
         // make key as host:port_website
-        MakeKey(requestInfo.host, requestInfo.port, requestInfo.url, key);
+        MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
         if (!responseInfo.hasCacheControl)
         {
             // set default cache

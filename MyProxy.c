@@ -199,15 +199,17 @@ int main(int argc, char **argv)
 
                         if (requestInfo.type == 1)
                         {
-                            GetConduct(requestInfo, message, sock, myCache);
+                            GetConduct(&requestInfo, message, sock, myCache);
                             continue;
                         }
                         else if (requestInfo.type == 2)
                         {
-                            UpdateClient(sock, stas_code, "", 0, ClientNum, my_client_p, my_client_log);
+                            printf("connectaaaaaaaaaaaaaaa;\n");
+                            UpdateClient(sock, stas_code, "", 2, ClientNum, my_client_p, my_client_log);
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
                             //      waiting for the client to sent more
+                            GetConduct(&requestInfo, message, sock, myCache);
                             continue;
                         }
                         else
