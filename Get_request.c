@@ -27,7 +27,7 @@ void MakeKey(char *Host, char *Port, char *GET, char *key)
 }
 
 
-int GetRequest(char *request, int sock, struct MyCache myCache)
+int GetConduct(struct RequestInfo requestInfo, char *request, int sock, struct MyCache myCache)
 {
     struct sockaddr_in serveraddr, serveraddr1; /* server's addr */
     struct sockaddr_in clientaddr;              /* client addr */
@@ -39,7 +39,6 @@ int GetRequest(char *request, int sock, struct MyCache myCache)
     int sockfd;
     struct hostent *server;
 
-    struct RequestInfo requestInfo;
     struct ResponseInfo responseInfo;
     char *responseInCache;
     char *p;
@@ -55,7 +54,7 @@ int GetRequest(char *request, int sock, struct MyCache myCache)
     responseLength = (int *)malloc(sizeof(int));
     char key[200];
 
-    requestInfo = AnalyzeRequest(request);
+    
 
     bzero(responseInCache, BUFSIZE);
     bzero(temp, BUFSIZE);

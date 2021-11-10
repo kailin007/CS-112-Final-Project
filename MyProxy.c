@@ -37,8 +37,6 @@
 #define ReadBits 1024
 #define ClientCapacity 100
 
-
-
 int main(int argc, char **argv)
 {
     int master_socket;             /* listening socket */
@@ -54,14 +52,14 @@ int main(int argc, char **argv)
     int n;                         /* message byte size */
     int sock;
     fd_set temp_set, master_set;
-    char backup[BUFSIZE+1];
+    char backup[BUFSIZE + 1];
     struct MyCache myCache;
-
+    struct RequestInfo requestInfo; /* store break down request info */
 
     myCache = initializeMyCache(CacheSize, 200, MESSIZE);
 
     //init my client list
-    struct MY_CLIENT **my_client_log = malloc(ClientCapacity*sizeof(struct MY_CLIENT*));
+    struct MY_CLIENT **my_client_log = malloc(ClientCapacity * sizeof(struct MY_CLIENT *));
     struct MY_CLIENT ***my_client_p = &my_client_log;
 
     /* check command line args */
@@ -108,7 +106,7 @@ int main(int argc, char **argv)
     FD_SET(master_socket, &master_set);
     int fdmax = master_socket;
 
-    int ClientNum = 0;                      /*current number of client we have in our list*/
+    int ClientNum = 0; /*current number of client we have in our list*/
 
     while (1)
     {
@@ -138,7 +136,7 @@ int main(int argc, char **argv)
                 fdmax = client_socket;
             }
             //init this first time client socket
-            if(ClientNum == ClientCapacity)
+            if (ClientNum == ClientCapacity)
                 RemoveWhenFull(ClientNum, my_client_p, my_client_log);
             ClientNum = initClient(client_socket, ClientNum, my_client_log);
         }
@@ -148,11 +146,12 @@ int main(int argc, char **argv)
             for (sock = 0; sock < fdmax + 1; sock++)
             {
                 if (FD_ISSET(sock, &temp_set))
-                {   
+                {
                     printf("========================================================================\n");
                     printf("recived a message form client %d\n", sock);
 
-                    if( getCode(sock, ClientNum, my_client_p) == 1){
+                    if (getCode(sock, ClientNum, my_client_p) == 1)
+                    {
                         //TODO: sent what ever client send us to the server
                         //      and sent server respond to client
                         continue;
@@ -161,7 +160,7 @@ int main(int argc, char **argv)
                     bzero(buf, BUFSIZE);
                     n = read(sock, buf, BUFSIZE);
                     //if the client close the connection, we do the same
-                    if(n <= 0)
+                    if (n <= 0)
                     {
                         //remove this client from list
                         ClientNum = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
@@ -169,41 +168,54 @@ int main(int argc, char **argv)
                         close(sock);
                         continue;
                     }
+
                     //check if we get a full header.
                     int stas_code;
-                    memcpy(backup, buf, n);             //make a copy of buf we can so operation
+                    memcpy(backup, buf, n); //make a copy of buf we can so operation
                     backup[n] = '\0';
-                    if (strstr(backup, "\r\n\r\n") != NULL){
-                        if(strstr(backup, "GET:") != NULL)
-                            stas_code = 0;
-                            printf("This is a get request.\n");
-                        if(strstr(backup, "CONNECT:") != NULL)
-                            stas_code = 1;
-                    }
-                    else {stas_code = -1;}
-                    printf("status code is %d, number of clients in list is %d\n",stas_code,ClientNum);+
-                    printf("socket: %d\n",(*my_client_p)[0]->sock);
+                    if (strstr(backup, "\r\n\r\n") != NULL)
+                    {
 
-                    if(stas_code == -1){        //we did not get a full request
-                        UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
-                        continue;               //update client message and then keep waiting
+                        stas_code = 0;
                     }
-                    else if(stas_code == 0){
-                        UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
-                        //TODO: do the text_analysis and call the get function to make connection 
-                        //      with host and sent secourse client request from server or cache.
-                        printf("%s--------------\n",(*my_client_p)[FindClient(sock,ClientNum,my_client_p)]->message);
-                        GetRequest((*my_client_p)[FindClient(sock,ClientNum,my_client_p)]->message, sock, myCache);
-                        continue;
+                    else
+                    {
+                        stas_code = -1;
                     }
-                    else{
+
+                    if (stas_code == -1)
+                    { //we did not get a full request
                         UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
-                        //TODO: make tcp connection with the https server 
-                        //      sent 200 ok back to client 
-                        //      waiting for the client to sent more
+                        continue; //update client message and then keep waiting
                     }
-                    
-                    
+                    else
+                    {
+                        //complate the request message in client struct and change stas_code to 0.
+                        UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
+                        printf("%s--------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
+                        char *message[500];
+                        strcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
+                        requestInfo = AnalyzeRequest(message);
+
+                        if (requestInfo.type == 1)
+                        {
+                            GetConduct(requestInfo, message, sock, myCache);
+                            continue;
+                        }
+                        else if (requestInfo.type == 2)
+                        {
+                            UpdateClient(sock, stas_code, "", 0, ClientNum, my_client_p, my_client_log);
+                            //TODO: make tcp connection with the https server
+                            //      sent 200 ok back to client
+                            //      waiting for the client to sent more
+                            continue;
+                        }
+                        else
+                        {
+                            printf("Unknow type of HTTP method!\n");
+                            continue;
+                        }
+                    }
                 }
             }
         }

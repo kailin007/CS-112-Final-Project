@@ -41,7 +41,7 @@ struct RequestInfo AnalyzeRequest(char *text)
                 return requestInfo;
             }
 
-            if (p2)
+            if (p2 != NULL && p2 < p3)
             {
                 memcpy(requestInfo.host, p1 + 1, p2 - p1 - 1);
                 memcpy(requestInfo.port, p2 + 1, p3 - p2 - 1);
