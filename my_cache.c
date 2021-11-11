@@ -125,7 +125,7 @@ int getAge(char *key, struct MyCache myCache)
     long currentTime = time(NULL);
     for (i = 0; i < myCache.cacheSize; i++)
     {
-        printf("key: %s, myCache.cacheUnits[i].key: %s\n", key, myCache.cacheUnits[i].key);
+        // printf("key: %s, myCache.cacheUnits[i].key: %s\n", key, myCache.cacheUnits[i].key);
         if (strcmp(key, myCache.cacheUnits[i].key) == 0)
         {
             myCache.cacheUnits[i].lastUsedTime = currentTime;
