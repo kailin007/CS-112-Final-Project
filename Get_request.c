@@ -1,6 +1,6 @@
 #include "Get_request.h"
 
-#define BUFSIZE 10485760
+#define BUFSIZE 1024
 #define CacheSize 10
 #define DefaultMaxAge 3600
 #define ReadBits 1024
@@ -63,12 +63,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
     getFromMyCache(key, responseInCache, responseLength, &myCache);
     printf("key forage succ\n");
-    printf("host name is !!!!!!!!!!!: %s,,,,%s,,,,,%s\n", requestInfo->host, requestInfo->port, requestInfo->url);
     if (strcmp(responseInCache, "NA") != 0)
     {
         printf("a\n");
         age = getAge(key, myCache);
-        printf("Age: %d\n", age);
+        // printf("Age: %d\n", age);
         sprintf(ageLine, "Age: %d\n", age);
         // printf("ageLine: %s\n", ageLine);
         p = strstr(responseInCache, "\r\n");
@@ -81,7 +80,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         memcpy(temp + firstlineLength + strlen(ageLine), p, *responseLength - firstlineLength);
         bzero(buf, BUFSIZE);
         memcpy(buf, temp, *responseLength + strlen(ageLine));
-        printf("\nThis is from cache:\n");
+        printf("\nThis is from cache\n");
 
         n = write(sock, buf, *responseLength + strlen(ageLine));
     }
@@ -153,13 +152,16 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         close(sockfd);
         printf("sockfd closed\n");
 
-        printf("\nThis is from server(not from cache):\n");
+        printf("\nThis is from server (not from cache)\n");
 
         n = write(sock, buf, j);
-        printf("****************************************************************************************\n\n");
     }
+    printf("free1\n");
     free(buf);
+    printf("free2\n");
     free(responseInCache);
+    printf("free3\n");
     free(temp);
+    printf("free4\n");
     free(responseLength);
 }

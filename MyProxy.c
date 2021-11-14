@@ -29,6 +29,7 @@
 #include "my_cache.h"
 #include "Client_List.h"
 #include "Get_request.h"
+#include "Connect_request.h"
 
 #define MESSIZE 10485760
 #define BUFSIZE 1024
@@ -209,7 +210,7 @@ int main(int argc, char **argv)
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
                             //      waiting for the client to sent more
-                            GetConduct(&requestInfo, message, sock, myCache);
+                            ConnectConduct(&requestInfo, message, sock, myCache);
                             continue;
                         }
                         else
