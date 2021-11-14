@@ -140,6 +140,7 @@ int main(int argc, char **argv)
             if (ClientNum == ClientCapacity)
                 RemoveWhenFull(ClientNum, my_client_p, my_client_log);
             ClientNum = initClient(client_socket, ClientNum, my_client_log);
+
         }
         else
         {
@@ -194,7 +195,7 @@ int main(int argc, char **argv)
                         //complate the request message in client struct and change stas_code to 0.
                         UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
                         printf("%s--------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
-                        char *message[500];
+                        char message[500];
                         strcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
                         requestInfo = AnalyzeRequest(message);
 
@@ -205,12 +206,11 @@ int main(int argc, char **argv)
                         }
                         else if (requestInfo.type == 2)
                         {
-                            printf("connectaaaaaaaaaaaaaaa;\n");
                             UpdateClient(sock, stas_code, "", 2, ClientNum, my_client_p, my_client_log);
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
                             //      waiting for the client to sent more
-                            ConnectConduct(&requestInfo, message, sock, myCache);
+                            ConnectConduct(&requestInfo);
                             continue;
                         }
                         else
