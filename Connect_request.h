@@ -1,5 +1,5 @@
-#ifndef MY_GET_ /* Include guard */
-#define MY_GET_
+#ifndef MY_CONNECT_ /* Include guard */
+#define MY_CONNECT_
 
 #include <stdio.h>
 #include <unistd.h>
@@ -17,8 +17,10 @@
 #include "my_cache.h"
 #include "Client_List.h"
 
-int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache myCache);
+#define BUFSIZE 102400
+
+int ConnectConduct(struct RequestInfo *requestInfo, char *request, int clientSock, struct MyCache myCache);
 
                      
 
-#endif // MY_GET_
+#endif // MY_CONNECT_
