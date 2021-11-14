@@ -200,7 +200,7 @@ int main(int argc, char **argv)
 
                         if (requestInfo.type == 1)
                         {
-                            GetConduct(&requestInfo, message, sock, myCache);
+                            GetConduct(&requestInfo, message, sock, &myCache);
                             continue;
                         }
                         else if (requestInfo.type == 2)
@@ -210,7 +210,7 @@ int main(int argc, char **argv)
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
                             //      waiting for the client to sent more
-                            ConnectConduct(&requestInfo, message, sock, myCache);
+                            ConnectConduct(&requestInfo, message, sock, &myCache);
                             continue;
                         }
                         else

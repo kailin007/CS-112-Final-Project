@@ -1,6 +1,6 @@
 #include "Connect_request.h"
 
-int ConnectConduct(struct RequestInfo *requestInfo, char *request, int clientSock, struct MyCache myCache){
+int ConnectConduct(struct RequestInfo *requestInfo, char *request, int clientSock, struct MyCache* myCache){
     int n;
     int j;
     int serverSock;

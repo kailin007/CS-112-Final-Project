@@ -1,6 +1,6 @@
 #include "Get_request.h"
 
-#define BUFSIZE 1024
+#define BUFSIZE 10485760
 #define CacheSize 10
 #define DefaultMaxAge 3600
 #define ReadBits 1024
@@ -27,7 +27,7 @@ void MakeKey(char *Host, char *Port, char *GET, char *key)
 }
 
 
-int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache myCache)
+int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache)
 {
     struct sockaddr_in serveraddr, serveraddr1; /* server's addr */
     struct sockaddr_in clientaddr;              /* client addr */
@@ -61,12 +61,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     // find in cache
 
     MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
-    getFromMyCache(key, responseInCache, responseLength, &myCache);
     printf("key forage succ\n");
+    getFromMyCache(key, responseInCache, responseLength, myCache);
     if (strcmp(responseInCache, "NA") != 0)
     {
-        printf("a\n");
-        age = getAge(key, myCache);
+        age = getAge(key, *myCache);
         // printf("Age: %d\n", age);
         sprintf(ageLine, "Age: %d\n", age);
         // printf("ageLine: %s\n", ageLine);
@@ -86,7 +85,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     }
     else
     {
-        //printf("%s\n",request);
+        // printf("%s\n",request);
         // forward to another server
         /* socket: create the socket to server*/
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -141,11 +140,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         if (!responseInfo.hasCacheControl)
         {
             // set default cache
-            putIntoMyCache(key, buf, DefaultMaxAge, j, &myCache);
+            putIntoMyCache(key, buf, DefaultMaxAge, j, myCache);
         }
         else if (responseInfo.needCache)
         {
-            putIntoMyCache(key, buf, responseInfo.maxAge, j, &myCache);
+            putIntoMyCache(key, buf, responseInfo.maxAge, j, myCache);
         }
 
         printf("proxy received %d bytes.\n", n);
@@ -156,12 +155,8 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         n = write(sock, buf, j);
     }
-    printf("free1\n");
     free(buf);
-    printf("free2\n");
     free(responseInCache);
-    printf("free3\n");
     free(temp);
-    printf("free4\n");
     free(responseLength);
 }
