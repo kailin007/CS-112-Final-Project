@@ -19,7 +19,7 @@
 
 #define BUFSIZE 102400
 
-int ConnectConduct(struct RequestInfo *requestInfo, char *request, int clientSock, struct MyCache* myCache);
+int ConnectConduct(struct RequestInfo *requestInfo);
 
                      
 

@@ -66,9 +66,8 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     if (strcmp(responseInCache, "NA") != 0)
     {
         age = getAge(key, *myCache);
-        // printf("Age: %d\n", age);
         sprintf(ageLine, "Age: %d\n", age);
-        // printf("ageLine: %s\n", ageLine);
+        
         p = strstr(responseInCache, "\r\n");
         p += 2;
 
@@ -85,7 +84,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     }
     else
     {
-        // printf("%s\n",request);
+
         // forward to another server
         /* socket: create the socket to server*/
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -159,4 +158,5 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     free(responseInCache);
     free(temp);
     free(responseLength);
+    
 }
