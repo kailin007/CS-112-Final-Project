@@ -201,7 +201,7 @@ int main(int argc, char **argv)
 
                         if (requestInfo.type == 1)
                         {
-                            GetConduct(&requestInfo, message, sock, myCache);
+                            GetConduct(&requestInfo, message, sock, &myCache);
                             continue;
                         }
                         else if (requestInfo.type == 2)

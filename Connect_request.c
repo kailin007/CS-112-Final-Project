@@ -1,6 +1,9 @@
 #include "Connect_request.h"
 
+
 int ConnectConduct(struct RequestInfo *requestInfo){
+
+
     int serverSock;
     struct sockaddr_in serveraddr; /* server's addr */
     struct hostent *server;

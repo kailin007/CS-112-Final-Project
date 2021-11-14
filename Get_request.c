@@ -27,7 +27,7 @@ void MakeKey(char *Host, char *Port, char *GET, char *key)
 }
 
 
-int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache myCache)
+int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache)
 {
     struct sockaddr_in serveraddr, serveraddr1; /* server's addr */
     struct sockaddr_in clientaddr;              /* client addr */
@@ -61,13 +61,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     // find in cache
 
     MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
-    getFromMyCache(key, responseInCache, responseLength, &myCache);
     printf("key forage succ\n");
+    getFromMyCache(key, responseInCache, responseLength, myCache);
     if (strcmp(responseInCache, "NA") != 0)
     {
-        
-        age = getAge(key, myCache);
-        
+        age = getAge(key, *myCache);
         sprintf(ageLine, "Age: %d\n", age);
         
         p = strstr(responseInCache, "\r\n");
@@ -86,7 +84,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     }
     else
     {
-        
+
         // forward to another server
         /* socket: create the socket to server*/
         sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -141,11 +139,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         if (!responseInfo.hasCacheControl)
         {
             // set default cache
-            putIntoMyCache(key, buf, DefaultMaxAge, j, &myCache);
+            putIntoMyCache(key, buf, DefaultMaxAge, j, myCache);
         }
         else if (responseInfo.needCache)
         {
-            putIntoMyCache(key, buf, responseInfo.maxAge, j, &myCache);
+            putIntoMyCache(key, buf, responseInfo.maxAge, j, myCache);
         }
 
         printf("proxy received %d bytes.\n", n);
@@ -156,16 +154,9 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         n = write(sock, buf, j);
     }
-    
     free(buf);
-    
-    
     free(responseInCache);
-    
-    
     free(temp);
-    
-
     free(responseLength);
     
 }
