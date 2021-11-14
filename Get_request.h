@@ -17,7 +17,7 @@
 #include "my_cache.h"
 #include "Client_List.h"
 
-int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache myCache);
+int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache);
 
                      
 
