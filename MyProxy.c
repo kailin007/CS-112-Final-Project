@@ -33,10 +33,10 @@
 
 #define MESSIZE 10485760
 #define BUFSIZE 1024
-#define CacheSize 10
+#define CacheSize 2
 #define DefaultMaxAge 3600
 #define ReadBits 1024
-#define ClientCapacity 100
+#define ClientCapacity 2
 
 int main(int argc, char **argv)
 {
@@ -117,16 +117,24 @@ int main(int argc, char **argv)
         {
             //make connection to the new client
             client_socket = accept(master_socket, (struct sockaddr *)&clientaddr, &clientlen);
-            if (client_socket < 0)
-                error("ERROR on accept");
+            if (client_socket < 0){
+                printf("ERROR on accept\n");
+                continue;
+            }
             /* gethostbyaddr: determine who sent the message */
             hostp = gethostbyaddr((const char *)&clientaddr.sin_addr.s_addr,
                                   sizeof(clientaddr.sin_addr.s_addr), AF_INET);
-            if (hostp == NULL)
-                error("ERROR on gethostbyaddr");
+            if (hostp == NULL){
+                printf("ERROR on gethostbyaddr\n");
+                close(client_socket);
+                continue;
+            }
             hostaddrp = inet_ntoa(clientaddr.sin_addr);
-            if (hostaddrp == NULL)
-                error("ERROR on inet_ntoa\n");
+            if (hostaddrp == NULL){
+                printf("ERROR on inet_ntoa\n");
+                close(client_socket);
+                continue;
+            }
             printf("server established connection with %s (%s) that is socket %d\n",
                    hostp->h_name, hostaddrp, client_socket);
 
@@ -140,7 +148,6 @@ int main(int argc, char **argv)
             if (ClientNum == ClientCapacity)
                 RemoveWhenFull(ClientNum, my_client_p, my_client_log);
             ClientNum = initClient(client_socket, ClientNum, my_client_log);
-
         }
         else
         {
@@ -192,7 +199,7 @@ int main(int argc, char **argv)
                     }
                     else
                     {
-                        //complate the request message in client struct and change stas_code to 0.
+                        //complete the request message in client struct and change stas_code to 0.
                         UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
                         printf("%s--------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
                         char message[500];
@@ -201,7 +208,14 @@ int main(int argc, char **argv)
 
                         if (requestInfo.type == 1)
                         {
-                            GetConduct(&requestInfo, message, sock, &myCache);
+                            int get_status = GetConduct(&requestInfo, message, sock, &myCache);
+                            // get errors when making connection/reading/writing
+                            if(get_status==0){
+                                //remove this client from list
+                                ClientNum = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+                            }
                             continue;
                         }
                         else if (requestInfo.type == 2)
@@ -210,7 +224,14 @@ int main(int argc, char **argv)
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
                             //      waiting for the client to sent more
-                            ConnectConduct(&requestInfo);
+                            int get_status = ConnectConduct(&requestInfo);
+                            // get errors when making connection/reading/writing
+                            if(get_status==0){
+                                //remove this client from list
+                                ClientNum = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+                            }
                             continue;
                         }
                         else
