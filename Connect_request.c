@@ -37,15 +37,11 @@ int ConnectConduct(struct RequestInfo *requestInfo){
 // forward messages from srcSock to dstSock; return the length of message.
 int ForwardMsg(int srcSock, int dstSock){
     int BUFSIZE = 8192;
-    int n = 0, totalSent = 0;
+    int n = 0;
     char buf[BUFSIZE];
 
     n = read(srcSock, buf, BUFSIZE);
-    while(n > 0){
-        totalSent += n;
-        write(dstSock, buf, BUFSIZE);
-        n = read(srcSock, buf, BUFSIZE);
-    }
+    n = write(dstSock, buf, BUFSIZE);
 
-    return totalSent;
+    return n;
 }
