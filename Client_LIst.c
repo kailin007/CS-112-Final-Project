@@ -64,7 +64,7 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
         myclient_log[i] -> status = (*myclient_p)[i+1] -> status;
     }
     free(myclient_log[Client_Num-1]);
-    return Client_Num--;
+    return --Client_Num;
 }                
 
 

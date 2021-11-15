@@ -1,4 +1,5 @@
 #include "Connect_request.h"
+#define h_addr h_addr_list[0]
 
 // establish TCP connect to server according to CONNECT request
 int ConnectConduct(struct RequestInfo *requestInfo){
@@ -18,7 +19,7 @@ int ConnectConduct(struct RequestInfo *requestInfo){
     if (server == NULL)
     {
         fprintf(stderr, "ERROR, no such host as %s\n", requestInfo->host);
-        exit(0);
+        return 0;
     }
 
     /* build the server's Internet address */
@@ -30,18 +31,29 @@ int ConnectConduct(struct RequestInfo *requestInfo){
 
     /* connect: create a connection with the server */
     if (connect(serverSock, &serveraddr, sizeof(serveraddr)) < 0)
-        error("ERROR connecting");
+    {   printf("ERROR connecting\n");
+        return 0; 
+    }
     
+    return 1; // successfully exit
 }
 
 // forward messages from srcSock to dstSock; return the length of message.
 int ForwardMsg(int srcSock, int dstSock){
     int BUFSIZE = 8192;
-    int n = 0;
+    int n;
     char buf[BUFSIZE];
 
     n = read(srcSock, buf, BUFSIZE);
-    n = write(dstSock, buf, BUFSIZE);
+    if(n<=0){
+        printf("error reading\n");
+        return n;
+    }
+    n = write(dstSock, buf, n);
+    if(n<=0){
+        printf("error writing\n");
+        return n;
+    }
 
     return n;
 }
