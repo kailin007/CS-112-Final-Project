@@ -14,12 +14,9 @@
 #include <arpa/inet.h>
 #include <string.h>
 #include "text_analysis.h"
-#include "my_cache.h"
-#include "Client_List.h"
 
-#define BUFSIZE 102400
-
-int ConnectConduct(struct RequestInfo *requestInfo);
+int ConnectConduct(struct RequestInfo *requestInfo); // establish TCP connect to server according to CONNECT request
+int ForwardMsg(int srcSock, int dstSock); // forward messages from srcSock to dstSock; return the length of message.
 
                      
 

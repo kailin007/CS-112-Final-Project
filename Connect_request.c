@@ -1,9 +1,7 @@
 #include "Connect_request.h"
 
-
+// establish TCP connect to server according to CONNECT request
 int ConnectConduct(struct RequestInfo *requestInfo){
-
-
     int serverSock;
     struct sockaddr_in serveraddr; /* server's addr */
     struct hostent *server;
@@ -34,5 +32,20 @@ int ConnectConduct(struct RequestInfo *requestInfo){
     if (connect(serverSock, &serveraddr, sizeof(serveraddr)) < 0)
         error("ERROR connecting");
     
-    
+}
+
+// forward messages from srcSock to dstSock; return the length of message.
+int ForwardMsg(int srcSock, int dstSock){
+    int BUFSIZE = 8192;
+    int n = 0, totalSent = 0;
+    char buf[BUFSIZE];
+
+    n = read(srcSock, buf, BUFSIZE);
+    while(n > 0){
+        totalSent += n;
+        write(dstSock, buf, BUFSIZE);
+        n = read(srcSock, buf, BUFSIZE);
+    }
+
+    return totalSent;
 }
