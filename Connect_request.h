@@ -15,9 +15,9 @@
 #include <string.h>
 #include "text_analysis.h"
 
-int ConnectConduct(struct RequestInfo *requestInfo); // establish TCP connect to server according to CONNECT request
-int ForwardMsg(int srcSock, int dstSock); // forward messages from srcSock to dstSock; return the length of message.
-
-                     
+int ConnectConduct(struct RequestInfo *requestInfo, int sock); // establish TCP connect to server according to CONNECT request
+int ForwardMsg(int srcSock, int dstSock, int length); // forward messages from srcSock to dstSock; return the length of message.
+int ForwardHeader(int srcSock, int dstSock);
+int MForwardHeader(int srcSock, int dstSock, unsigned char *buf);                     
 
 #endif // MY_CONNECT_

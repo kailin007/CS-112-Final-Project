@@ -2,10 +2,13 @@
 #define h_addr h_addr_list[0]
 
 // establish TCP connect to server according to CONNECT request
-int ConnectConduct(struct RequestInfo *requestInfo){
+int ConnectConduct(struct RequestInfo *requestInfo, int sock){
     int serverSock;
     struct sockaddr_in serveraddr; /* server's addr */
     struct hostent *server;
+    int n = 0;
+    unsigned char buf[BUFSIZ];
+    int length;
 
 
     // establish TCP connection to server
@@ -34,22 +37,170 @@ int ConnectConduct(struct RequestInfo *requestInfo){
     {   printf("ERROR connecting\n");
         return 0; 
     }
+    //sent 200 ok to client
+    n = write(sock, "HTTP/1.1 200 OK\r\n\r\n", strlen("HTTP/1.1 200 OK\r\n\r\n"));
+    printf("CONNECT\n");
+
+    // //recv Client Hello, sent to Server
+    // length = ForwardHeader(sock, serverSock);
+    // if( length <= 0)
+    // {
+    //     return -1;
+    // }
+    // printf("recv Client Hello, sent to Server\n");
+    // if( ForwardMsg(sock, serverSock, length) <= 0)
+    // {
+    //     return -1;
+    // }
+
+    // //recv Server Hello, sent ot Client
+    // bzero(buf, BUFSIZ);
+    // length = ForwardHeader(serverSock, sock);
+    // printf("recv Server Hello, sent ot Client\n");
+    // if( ForwardMsg(serverSock, sock, length) <= 0)
+    // {
+    //     return -1;
+    // }
+
+    // //Server change cipher spec
+    // bzero(buf, BUFSIZ);
+    // length = ForwardHeader(serverSock, sock);
+    // printf("Server change cipher spec\n");
+    // if( ForwardMsg(serverSock, sock, length) <= 0)
+    // {
+    //     return -1;
+    // }
+
+    // //Server sent Certificate wrapper.
+    // bzero(buf, BUFSIZ);
+    // length = ForwardHeader(serverSock, sock);   
+    // if( ForwardMsg(serverSock, sock, length) <= 0)
+    // {
+    //     return -1;
+    // }
+    // printf("server sent Certificate wrapper.\n");
+
+    // //Client Change Cipher Spec
+    // bzero(buf, BUFSIZ);
+    // length = ForwardHeader(sock, serverSock);
+    // printf("Client Change Cipher Spec\n");
+    // if( ForwardMsg(sock, serverSock, length) <= 0)
+    // {
+    //     return -1;
+    // }
+
+    // //Client sent Handshake Finished Wrapper.
+    // bzero(buf, BUFSIZ);
+    // printf("Client sent Handshake Finished Wrapper.\n");
+    // length = ForwardHeader(sock, serverSock);
+    // if( ForwardMsg(sock, serverSock, length) <= 0)
+    // {
+    //     return -1;
+    // }
     
-    return 1; // successfully exit
+    //
+    //TLS handshake finished here.
+    //
+
+
+    // fd_set temp_set, master_set;
+    // FD_ZERO(&master_set);
+    // FD_ZERO(&temp_set);
+    // FD_SET(sock, &master_set);
+    // FD_SET(serverSock, &master_set);
+    // int fdmax;
+    // if(sock > serverSock)
+    // {
+    //     fdmax = sock;
+    // }
+    // else
+    // {
+    //     fdmax = serverSock;
+    // }
+    // while (1)
+    // {
+    //     temp_set = master_set;
+    //     select(fdmax + 1, &temp_set, NULL, NULL, NULL);
+    //     if (FD_ISSET(serverSock, &temp_set))
+    //     {
+    //         bzero(buf, BUFSIZ);
+    //         length = ForwardHeader(serverSock, sock);
+    //         if (ForwardMsg(serverSock, sock, length) <= 0)
+    //         {
+    //             return -1;
+    //         }
+    //     }
+    //     else
+    //     {
+    //         bzero(buf, BUFSIZ);
+    //         length = ForwardHeader(sock, serverSock);
+    //         if (ForwardMsg(sock, serverSock, length) <= 0)
+    //         {
+    //             return -1;
+    //         }
+    //     }
+    // }
+    printf("exiting!!!!!!!\n");
+    return serverSock; // successfully exit
 }
 
-// forward messages from srcSock to dstSock; return the length of message.
-int ForwardMsg(int srcSock, int dstSock){
-    int BUFSIZE = 8192;
+int ForwardHeader(int srcSock, int dstSock)
+{
     int n;
-    char buf[BUFSIZE];
-
-    n = read(srcSock, buf, BUFSIZE);
+    unsigned char buf[BUFSIZ];
+    short number = 0;
+    n = read(srcSock, buf, 5);
     if(n<=0){
         printf("error reading\n");
         return n;
     }
-    n = write(dstSock, buf, n);
+    if(n<=0){
+        printf("error writing\n");
+        return n;
+    }
+    memcpy((char*)&number, buf+3, 2);
+    n = write(dstSock, buf, 5);
+    number = ntohs(number);
+    return number;
+}
+
+int MForwardHeader(int srcSock, int dstSock, unsigned char *buf)
+{
+    int n;
+    short number = 0;
+    n = read(srcSock, buf+1, 4);
+    if(n<=0){
+        printf("error reading\n");
+        return n;
+    }
+    if(n<=0){
+        printf("error writing\n");
+        return n;
+    }
+    memcpy((char*)&number, buf+3, 2);
+    n = write(dstSock, buf, 5);
+    number = ntohs(number);
+    return number;
+}
+
+// forward messages from srcSock to dstSock; return the length of message.
+int ForwardMsg(int srcSock, int dstSock, int length){
+    int BUFSIZE = 8192;
+    int n;
+    char buf[BUFSIZE];
+    int recved = 0;
+    while (recved < length)
+    {
+        n = read(srcSock, buf + recved, length - recved);
+        if (n <= 0)
+        {
+            printf("error reading\n");
+            return n;
+        }
+        recved += n;
+    }
+
+    n = write(dstSock, buf, length);
     if(n<=0){
         printf("error writing\n");
         return n;
