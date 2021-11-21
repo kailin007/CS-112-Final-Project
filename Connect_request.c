@@ -22,7 +22,7 @@ int ConnectConduct(struct RequestInfo *requestInfo, int sock){
     if (server == NULL)
     {
         fprintf(stderr, "ERROR, no such host as %s\n", requestInfo->host);
-        return 0;
+        return -1;
     }
 
     /* build the server's Internet address */
@@ -35,7 +35,7 @@ int ConnectConduct(struct RequestInfo *requestInfo, int sock){
     /* connect: create a connection with the server */
     if (connect(serverSock, &serveraddr, sizeof(serveraddr)) < 0)
     {   printf("ERROR connecting\n");
-        return 0; 
+        return -1; 
     }
     //sent 200 ok to client
     n = write(sock, "HTTP/1.1 200 OK\r\n\r\n", strlen("HTTP/1.1 200 OK\r\n\r\n"));
@@ -140,7 +140,7 @@ int ConnectConduct(struct RequestInfo *requestInfo, int sock){
     //         }
     //     }
     // }
-    printf("exiting!!!!!!!\n");
+    printf("CONNECT: successfully connect to the server\n");
     return serverSock; // successfully exit
 }
 
@@ -151,15 +151,15 @@ int ForwardHeader(int srcSock, int dstSock)
     short number = 0;
     n = read(srcSock, buf, 5);
     if(n<=0){
-        printf("error reading\n");
-        return n;
-    }
-    if(n<=0){
-        printf("error writing\n");
-        return n;
+        printf("CONNECT: error reading from socket %d\n", srcSock);
+        return -1;
     }
     memcpy((char*)&number, buf+3, 2);
     n = write(dstSock, buf, 5);
+    if(n<=0){
+        printf("CONNECT: error writing to socket %d\n", dstSock);
+        return -1;
+    }
     number = ntohs(number);
     return number;
 }
@@ -170,15 +170,15 @@ int MForwardHeader(int srcSock, int dstSock, unsigned char *buf)
     short number = 0;
     n = read(srcSock, buf+1, 4);
     if(n<=0){
-        printf("error reading\n");
-        return n;
-    }
-    if(n<=0){
-        printf("error writing\n");
-        return n;
+        printf("CONNECT: error reading from socket %d\n", srcSock);
+        return -1;
     }
     memcpy((char*)&number, buf+3, 2);
     n = write(dstSock, buf, 5);
+    if(n<=0){
+        printf("CONNECT: error writing to socket %d\n", dstSock);
+        return -1;
+    }
     number = ntohs(number);
     return number;
 }
@@ -192,18 +192,18 @@ int ForwardMsg(int srcSock, int dstSock, int length){
     while (recved < length)
     {
         n = read(srcSock, buf + recved, length - recved);
-        if (n <= 0)
-        {
-            printf("error reading\n");
-            return n;
-        }
         recved += n;
+    }
+    
+    if(n<=0){
+        printf("CONNECT: error reading from socket %d\n", srcSock);
+        return -1;
     }
 
     n = write(dstSock, buf, length);
     if(n<=0){
-        printf("error writing\n");
-        return n;
+        printf("CONNECT: error writing to socket %d\n", dstSock);
+        return -1;
     }
 
     return n;

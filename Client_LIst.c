@@ -12,7 +12,7 @@ int initClient(int socket, int Client_Num, struct MY_CLIENT **myclient_log){
 
 int FindClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
     for (int i = 0; i < Client_Num; i++)
-    {
+    {   
         if ((*myclient_p)[i] -> sock == socket)
         {
             return i;
@@ -23,19 +23,24 @@ int FindClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
 
 int getCode(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
     int target = FindClient(socket, Client_Num, myclient_p);
-    return (*myclient_p)[target] -> status;
+    printf("target: %d\n", target);
+    if(target==-1){
+        printf("Can not find socket you seek for in the list!\n");
+        return -3;
+    }
+    int c_status = (*myclient_p)[target] -> status;
+    printf("status: %d\n", c_status);
+    return c_status;
 }
 
 int UpdateClient(int socket, int statusCode, char *header, int length, int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
     int target = FindClient(socket, Client_Num, myclient_p);
-
     if (target == -1)
     {
         printf("Can not find socket you want to update in the list!\n");
         return -1;
     }
-
-    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);
+    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);   // segmentation fault???
     myclient_log[target] -> status = statusCode;
     if(statusCode != -1){
         myclient_log[target] -> currentLength += length;        // add current length of message, so we can cat the message using it.
@@ -45,7 +50,6 @@ int UpdateClient(int socket, int statusCode, char *header, int length, int Clien
     }
     return 0;
 }   
-
  
 
 int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
@@ -63,10 +67,9 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
         strcpy(myclient_log[i] -> message, (*myclient_p)[i+1] -> message);
         myclient_log[i] -> status = (*myclient_p)[i+1] -> status;
     }
-    free(myclient_log[Client_Num-1]);
+    //free(myclient_log[Client_Num-1]);
     return socket;
 }                
-
 
 //when the list is full delete client has not yet sent a full request first in first out, then client with 
 int RemoveWhenFull(int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
@@ -74,15 +77,15 @@ int RemoveWhenFull(int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLI
     {
         if((*myclient_p)[i] -> status == 0)
         {
-            return RemoveClient((*myclient_p)[i] -> status, Client_Num, myclient_p, myclient_log);
+            return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);
         }
     }
     for (int i = 0; i < Client_Num; i++)
     {
         if((*myclient_p)[i] -> status == -1)
         {
-            return RemoveClient((*myclient_p)[i] -> status, Client_Num, myclient_p, myclient_log);
+            return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);
         }
     }
-    return RemoveClient((*myclient_p)[0] -> status, Client_Num, myclient_p, myclient_log);
+    return RemoveClient((*myclient_p)[0] -> sock, Client_Num, myclient_p, myclient_log);
 }
