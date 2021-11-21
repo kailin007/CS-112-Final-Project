@@ -1,6 +1,6 @@
 #include "Get_request.h"
 
-#define BUFSIZE 10485760
+#define BUFSIZE 104857600
 #define DefaultMaxAge 3600
 #define ReadBits 1024
 #define h_addr h_addr_list[0]
@@ -13,7 +13,6 @@ void error(char *msg)
     perror(msg);
     exit(1);
 }
-
 
 
 void MakeKey(char *Host, char *Port, char *GET, char *key)
@@ -82,8 +81,8 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         n = write(sock, buf, *responseLength + strlen(ageLine));
         if (n <= 0){
-            printf("error writing\n");
-            return 0;
+            printf("error writing to client from cache!\n");
+            return -1;
         }
     }
     else
@@ -99,7 +98,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         if (server == NULL)
         {
             fprintf(stderr, "ERROR, no such host as %s\n", requestInfo->host);
-            return 0;
+            return -1;
         }
 
         /* build the server's Internet address */
@@ -112,15 +111,15 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         /* connect: create a connection with the server */
         if (connect(sockfd, &serveraddr1, sizeof(serveraddr1)) < 0)
         {   printf("ERROR connecting\n");
-            return 0; 
+            return -1; 
         }
         
         // forward to server
         n = write(sockfd, request, strlen(request));
         if (n <= 0){
-            printf("error writing\n");
+            printf("error writing to server\n");
             close(sockfd);
-            return 0;
+            return sockfd;
         }
         printf("proxy sent %d bytes to server.\n", n);
 
@@ -129,9 +128,8 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         n = read(sockfd, buf, BUFSIZE);
         if (n <= 0){
             close(sockfd);
-            return 0;
+            return sockfd;
         }
-
 
         // get cache info from response
         responseInfo = AnalyzeResponse(buf);
@@ -140,28 +138,32 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         while (j < responseInfo.contentLength)
         {
-            n = read(sockfd, buf + j, BUFSIZE);
+            n = read(sockfd, buf + j, BUFSIZE-j);
             if (n <= 0)
                 break;
             j += n;
         }
         if (j <= 0){
+            printf("error reading from server\n");
             close(sockfd);
-            return 0;
+            return sockfd;
         }
 
         printf("proxy read %d bytes from server.\n", j);
 
         // make key as host:port_website
         MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
-        if (!responseInfo.hasCacheControl)
-        {
-            // set default cache
-            putIntoMyCache(key, buf, DefaultMaxAge, j, myCache);
-        }
-        else if (responseInfo.needCache)
-        {
-            putIntoMyCache(key, buf, responseInfo.maxAge, j, myCache);
+        
+        if(j>=responseInfo.contentLength){
+            if (!responseInfo.hasCacheControl)
+            {
+                // set default cache
+                putIntoMyCache(key, buf, DefaultMaxAge, j, myCache);
+            }
+            else if (responseInfo.needCache)
+            {
+                putIntoMyCache(key, buf, responseInfo.maxAge, j, myCache);
+            }
         }
 
         printf("proxy received %d bytes.\n", n);
@@ -172,13 +174,13 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         n = write(sock, buf, j);
         if (n <= 0){
-            printf("error writing\n");
-            return 0;
+            printf("error writing to client\n");
+            return sockfd;
         }
     }
     free(buf);
     free(responseInCache);
     free(temp);
     free(responseLength);
-    return 1; // successfully processed a get request
+    return sockfd; // successfully processed a get request
 }

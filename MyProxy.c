@@ -146,12 +146,15 @@ int main(int argc, char **argv)
             if (client_socket > fdmax)
             {
                 fdmax = client_socket;
-            }
-            //init this first time client socket
-            if (ClientNum == ClientCapacity)
+            } 
+                            
+            if (ClientNum >= ClientCapacity)
             {
-                
-                FD_CLR(RemoveWhenFull(ClientNum, my_client_p, my_client_log), &master_set);
+                printf("Reach the maximum client capacity, evict some clients!!!!!!!!!!!\n");
+                int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
+                FD_CLR(rm_sock, &master_set);
+                close(rm_sock);
+                ClientNum =  ClientNum - 1;
             }
             ClientNum = initClient(client_socket, ClientNum, my_client_log);
         }
@@ -165,7 +168,11 @@ int main(int argc, char **argv)
                     printf("========================================================================\n");
                     printf("recived a message form client %d\n", sock);
 
-                    if (getCode(sock, ClientNum, my_client_p) > 0) //If this sock is either Server or Client with connect method.
+                    printf("sock: %d\n",sock);
+                    printf("ClientNum: %d\n",ClientNum);
+                    int statusCode = getCode(sock, ClientNum, my_client_p);
+                    
+                    if (statusCode > 0) //If this sock is either Server or Client with connect method.
                     {
                         printf("Find the code for socket\n");
 
@@ -174,12 +181,14 @@ int main(int argc, char **argv)
 
                         //if the client close the connection, we do the same
                         if (n <= 0)
-                        {
-                            //remove this client from list
-                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                            ClientNum =  ClientNum - 1;
-                            FD_CLR(sock, &master_set);
-                            close(sock);
+                        {   
+                            if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                //remove this client from list
+                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                ClientNum =  ClientNum - 1;
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+                            }
                             continue;
                         }
                         //If this is a application type of tls message, forward to other side.
@@ -191,23 +200,62 @@ int main(int argc, char **argv)
                             printf("TRUE!!!!!\n");
                             int target_sock = getCode(sock, ClientNum, my_client_p);
                             int length = MForwardHeader(sock, target_sock, buf); 
+                            if(length==-1){ // get error when forwarding
+                                if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                    RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                    close(sock);
+                                    ClientNum =  ClientNum - 1;
+                                    FD_CLR(sock, &master_set);
+                                }
+                                if(FindClient(target_sock, ClientNum, my_client_p)>=0){
+                                    RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
+                                    close(target_sock);
+                                    ClientNum =  ClientNum - 1;
+                                    FD_CLR(target_sock, &master_set);
+                                }
+                                continue; // break current while loop     
+                            }
                             printf("Length = %d\n",length);
                             int needToSent = length;
                             while (needToSent != 0)
                             {
                                 if (needToSent < 8000)
                                 {
-                                    if (ForwardMsg(sock, target_sock, needToSent) <= 0)
+                                    if (ForwardMsg(sock, target_sock, needToSent) == -1) // get error when forwarding
                                     {
-                                        return -1;
+                                        if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                            close(sock);
+                                            ClientNum =  ClientNum - 1;
+                                            FD_CLR(sock, &master_set);
+                                        }
+                                        if(FindClient(target_sock, ClientNum, my_client_p)>=0){
+                                            RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
+                                            close(target_sock);
+                                            ClientNum =  ClientNum - 1;
+                                            FD_CLR(target_sock, &master_set);
+                                        }
+                                        break; // break current while loop                 
                                     }
                                     needToSent = 0;
                                 }
                                 else
                                 {       
-                                    if (ForwardMsg(sock, target_sock, 8000) <= 0)
+                                    if (ForwardMsg(sock, target_sock, 8000) == -1) // get error when forwarding
                                     {
-                                        return -1;
+                                        if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                            close(sock);
+                                            ClientNum =  ClientNum - 1;
+                                            FD_CLR(sock, &master_set);
+                                        }
+                                        if(FindClient(target_sock, ClientNum, my_client_p)>=0){
+                                            RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
+                                            close(target_sock);
+                                            ClientNum =  ClientNum - 1;
+                                            FD_CLR(target_sock, &master_set);
+                                        }
+                                        break; // break current while loop
                                     }
                                     needToSent -= 8000;
                                 }
@@ -221,11 +269,13 @@ int main(int argc, char **argv)
                         //if the client close the connection, we do the same
                         if (n <= 0)
                         {
-                            //remove this client from list
-                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                            ClientNum =  ClientNum - 1;
-                            FD_CLR(sock, &master_set);
-                            close(sock);
+                            if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                //remove this client from list
+                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                ClientNum =  ClientNum - 1;
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+                            }
                             continue;
                         }
                     }
@@ -244,13 +294,24 @@ int main(int argc, char **argv)
                             continue;
                         }
                     }
+                    /*
+                    else{ //if this client has stas code of -3 (cannot find this client from the list).            
+                        if(FindClient(sock, ClientNum, my_client_p)>=0){
+                                //remove this client from list
+                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                ClientNum =  ClientNum - 1;
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+                        }
+                        continue;
+                    }
+                    */
                     //check if we get a full header.
                     int stas_code;
                     memcpy(backup, buf, n); //make a copy of buf we can so operation
                     backup[n] = '\0';
                     if (strstr(backup, "\r\n\r\n") != NULL)
                     {
-
                         stas_code = 0;
                     }
                     else
@@ -260,13 +321,13 @@ int main(int argc, char **argv)
 
                     if (stas_code == -1)
                     { //we did not get a full request
-                        UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
-                        continue; //update client message and then keep waiting
+                        int value = UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log); //update client message and then keep waiting
                     }
                     else
                     {
                         //complete the request message in client struct and change stas_code to 0.
-                        UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
+                        int value = UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
+                        int target = FindClient(sock, ClientNum, my_client_p);
                         printf("%s--------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
                         char message[500];
                         strcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
@@ -274,29 +335,39 @@ int main(int argc, char **argv)
 
                         if (requestInfo.type == 1)
                         {
-                            int get_status = GetConduct(&requestInfo, message, sock, &myCache);
-                            // get errors when making connection/reading/writing
-                            if(get_status==0){
+                            int serverSocket = GetConduct(&requestInfo, message, sock, &myCache);
+                            // get errors when making connection to server
+                            if(serverSocket==-1){
+                                write(sock,"400 Bad Request!",strlen("400 Bad Request!"));
                                 //remove this client from list
                                 RemoveClient(sock, ClientNum, my_client_p, my_client_log);
                                 ClientNum =  ClientNum - 1;
                                 FD_CLR(sock, &master_set);
                                 close(sock);
                             }
+                            else if(FindClient(serverSocket, ClientNum, my_client_p)>=0){
+                                write(sock,"400 Bad Request!",strlen("400 Bad Request!"));
+                                //remove this client from list
+                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                                ClientNum =  ClientNum - 1;
+                                FD_CLR(sock, &master_set);
+                                close(sock);
+
+                                RemoveClient(serverSocket, ClientNum, my_client_p, my_client_log);
+                                ClientNum =  ClientNum - 1;
+                                FD_CLR(serverSocket, &master_set);
+                            }
                             continue;
                         }
                         else if (requestInfo.type == 2)
-                        {
-                            
-                            
+                        {                        
                             //TODO: make tcp connection with the https server
                             //      sent 200 ok back to client
-                            //      waiting for the client to sent more
-                            
+                            //      waiting for the client to sent more 
                             int ServerSocket = ConnectConduct(&requestInfo, sock);
-                            // get errors when making connection/reading/writing
-                            if(ServerSocket==0){
-                                //remove this server from list
+                            // get errors when making connection to server
+                            if(ServerSocket==-1){
+                                //remove this client from list
                                 RemoveClient(sock, ClientNum, my_client_p, my_client_log);
                                 ClientNum =  ClientNum - 1;
                                 FD_CLR(sock, &master_set);
@@ -307,6 +378,15 @@ int main(int argc, char **argv)
                             if (ServerSocket > fdmax)
                             {
                                 fdmax = ServerSocket;
+                            }
+
+                            if (ClientNum >= ClientCapacity)
+                            {
+                                printf("Reach the maximum client capacity, evict some clients!!!!!!!!!!!\n");
+                                int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
+                                FD_CLR(rm_sock, &master_set);
+                                close(rm_sock);
+                                ClientNum =  ClientNum - 1;
                             }
                             ClientNum = initClient(ServerSocket, ClientNum, my_client_log);
                             UpdateClient(ServerSocket, sock, "", 0, ClientNum, my_client_p, my_client_log);
