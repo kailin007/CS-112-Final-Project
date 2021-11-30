@@ -11,7 +11,7 @@ struct MY_CLIENT
 {
     int sock;
     char message[500];
-    int status;         //status code 0 = waiting for next request method; -1 = waiting for rest of current method; 2 = this client send a connect method
+    int status;         //status code 0 = waiting for next request method; -1 = waiting for rest of current request (v2: cause it is not full request, remove the client); 2 = this client send a connect method
     int currentLength;
 };
 //get the status code of the client using this socket

@@ -1,8 +1,8 @@
 #include "Get_request.h"
 
-#define BUFSIZE 104857600
+#define BUFSIZE 10485760
 #define DefaultMaxAge 3600
-#define ReadBits 1024
+#define ReadBits 2048
 #define h_addr h_addr_list[0]
 
 /*
@@ -47,9 +47,9 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     int j;
     int *responseLength;
 
-    buf = (char *)malloc(BUFSIZE * sizeof(char));
-    temp = (char *)malloc(BUFSIZE * sizeof(char));
-    responseInCache = (char *)malloc(BUFSIZE * sizeof(char));
+    buf = (char *)malloc(BUFSIZE);
+    temp = (char *)malloc(BUFSIZE);
+    responseInCache = (char *)malloc(BUFSIZE);
     responseLength = (int *)malloc(sizeof(int));
     char key[200];
 
@@ -57,7 +57,6 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     bzero(temp, BUFSIZE);
     bzero(responseLength,sizeof(int));
     bzero(key,200);
-    // find in cache
 
     MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
     printf("key forage succ\n");
@@ -133,7 +132,6 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
 
         // get cache info from response
         responseInfo = AnalyzeResponse(buf);
-
         j = n;
 
         while (j < responseInfo.contentLength)
@@ -156,7 +154,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         
         if(j>=responseInfo.contentLength){
             if (!responseInfo.hasCacheControl)
-            {
+            {   
                 // set default cache
                 putIntoMyCache(key, buf, DefaultMaxAge, j, myCache);
             }
@@ -165,8 +163,6 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
                 putIntoMyCache(key, buf, responseInfo.maxAge, j, myCache);
             }
         }
-
-        printf("proxy received %d bytes.\n", n);
         close(sockfd);
         printf("server socket closed\n");
 
@@ -179,8 +175,12 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         }
     }
     free(buf);
-    free(responseInCache);
     free(temp);
+    free(responseInCache);
     free(responseLength);
+    buf = NULL;
+    temp = NULL;
+    responseInCache = NULL;
+    responseLength = NULL;
     return sockfd; // successfully processed a get request
 }

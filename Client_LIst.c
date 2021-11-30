@@ -23,13 +23,11 @@ int FindClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
 
 int getCode(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
     int target = FindClient(socket, Client_Num, myclient_p);
-    printf("target: %d\n", target);
     if(target==-1){
         printf("Can not find socket you seek for in the list!\n");
         return -3;
     }
     int c_status = (*myclient_p)[target] -> status;
-    printf("status: %d\n", c_status);
     return c_status;
 }
 
@@ -38,9 +36,9 @@ int UpdateClient(int socket, int statusCode, char *header, int length, int Clien
     if (target == -1)
     {
         printf("Can not find socket you want to update in the list!\n");
-        return -1;
+        return -3;
     }
-    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);   // segmentation fault???
+    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
     myclient_log[target] -> status = statusCode;
     if(statusCode != -1){
         myclient_log[target] -> currentLength += length;        // add current length of message, so we can cat the message using it.
@@ -55,10 +53,10 @@ int UpdateClient(int socket, int statusCode, char *header, int length, int Clien
 int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
     int target = FindClient(socket, Client_Num, myclient_p);
     
-    if (target < 0)
+    if (target == -1)
     {
         printf("Can not find socket you want to remove in the list!\n");
-        return -1;
+        return -3;
     }
     printf("Removing client %d from our list of client.\n",socket);
     for (int i = target; i < Client_Num-1; i++)
