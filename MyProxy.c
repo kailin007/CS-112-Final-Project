@@ -1,16 +1,6 @@
 /* 
  * proxy.c - A proxy server, support GET and CONNET HTTP method 
  * usage: proxy <port>
- * 
- * 
- * 
- * 11/6 update: support multiple client,
- *              separate GET method from main file,
- *              add functionality to support CONNECT method
- * 
- * TODO: Error Handling,
- *       Performance Testing
- *       Additonal Functionality...
  */
 
 #include <stdio.h>
@@ -32,11 +22,11 @@
 #include "Connect_request.h"
 
 #define MESSIZE 10485760
-#define BUFSIZE 1024
+#define BUFSIZE 2048
 #define CacheSize 100
 #define DefaultMaxAge 3600
-#define ReadBits 1024
-#define ClientCapacity 100
+#define ReadBits 2048
+#define ClientCapacity 1000
 
 int main(int argc, char **argv)
 {
@@ -150,7 +140,7 @@ int main(int argc, char **argv)
                             
             if (ClientNum >= ClientCapacity)
             {
-                printf("Reach the maximum client capacity, evict some clients!!!!!!!!!!!\n");
+                printf("Reach the maximum client capacity, evict some clients!!!!!!!\n");
                 int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
                 FD_CLR(rm_sock, &master_set);
                 close(rm_sock);
@@ -167,15 +157,12 @@ int main(int argc, char **argv)
                 {
                     printf("========================================================================\n");
                     printf("recived a message form client %d\n", sock);
-
-                    printf("sock: %d\n",sock);
-                    printf("ClientNum: %d\n",ClientNum);
+                    printf("Current clientNum: %d\n",ClientNum);
                     int statusCode = getCode(sock, ClientNum, my_client_p);
                     
                     if (statusCode > 0) //If this sock is either Server or Client with connect method.
                     {
-                        printf("Find the code for socket\n");
-
+                        printf("Find the status code(>0) for socket\n");
                         bzero(buf, BUFSIZE);
                         n = read(sock, buf, 1);
 
@@ -197,7 +184,6 @@ int main(int argc, char **argv)
                         code = ntohs(code);
                         if (code <= 5888)
                         {
-                            printf("TRUE!!!!!\n");
                             int target_sock = getCode(sock, ClientNum, my_client_p);
                             int length = MForwardHeader(sock, target_sock, buf); 
                             if(length==-1){ // get error when forwarding
@@ -279,10 +265,9 @@ int main(int argc, char **argv)
                             continue;
                         }
                     }
-                    else //if this client has stas code of 0 or -1 or -2.
+                    else if(statusCode==0 || statusCode==-1 || statusCode==-2) //if this client has status code of 0 or -1 or -2
                     {
                         n = read(sock, buf, BUFSIZE);
-
                         //if the client close the connection, we do the same
                         if (n <= 0)
                         {
@@ -294,18 +279,17 @@ int main(int argc, char **argv)
                             continue;
                         }
                     }
-                    /*
-                    else{ //if this client has stas code of -3 (cannot find this client from the list).            
+                    else{ //if this client has status code of -3 (cannot find this client from the list).     
+                        write(sock,"Bad Request!",strlen("Bad Request!"));       
                         if(FindClient(sock, ClientNum, my_client_p)>=0){
                                 //remove this client from list
                                 RemoveClient(sock, ClientNum, my_client_p, my_client_log);
                                 ClientNum =  ClientNum - 1;
-                                FD_CLR(sock, &master_set);
-                                close(sock);
                         }
+                        FD_CLR(sock, &master_set);
+                        close(sock);
                         continue;
                     }
-                    */
                     //check if we get a full header.
                     int stas_code;
                     memcpy(backup, buf, n); //make a copy of buf we can so operation
@@ -319,40 +303,40 @@ int main(int argc, char **argv)
                         stas_code = -1;
                     }
 
-                    if (stas_code == -1)
-                    { //we did not get a full request
-                        int value = UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log); //update client message and then keep waiting
+                    if (stas_code == -1) //we did not get a full request
+                    { 
+                        //int value = UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log); //v1: update client message and then keep waiting    
+                        write(sock,"Bad Request!",strlen("Bad Request!"));
+                        RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                        ClientNum =  ClientNum - 1;
+                        FD_CLR(sock, &master_set);
+                        close(sock);
+                        continue;
                     }
                     else
                     {
                         //complete the request message in client struct and change stas_code to 0.
                         int value = UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
                         int target = FindClient(sock, ClientNum, my_client_p);
-                        printf("%s--------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
+                        //printf("%s-------------------------------------------\n", (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
+                        printf("-------------------------------------------\n");
                         char message[500];
+                        bzero(message,500);
+
                         strcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
                         requestInfo = AnalyzeRequest(message);
-
+                        
                         if (requestInfo.type == 1)
                         {
                             int serverSocket = GetConduct(&requestInfo, message, sock, &myCache);
-                            // get errors when making connection to server
-                            if(serverSocket==-1){
-                                write(sock,"400 Bad Request!",strlen("400 Bad Request!"));
-                                //remove this client from list
-                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                ClientNum =  ClientNum - 1;
-                                FD_CLR(sock, &master_set);
-                                close(sock);
-                            }
-                            else if(FindClient(serverSocket, ClientNum, my_client_p)>=0){
-                                write(sock,"400 Bad Request!",strlen("400 Bad Request!"));
-                                //remove this client from list
-                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                ClientNum =  ClientNum - 1;
-                                FD_CLR(sock, &master_set);
-                                close(sock);
+                            if(serverSocket==-1){write(sock,"Bad Request!",strlen("Bad Request!"));}
+                            //remove this client from list
+                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                            ClientNum =  ClientNum - 1;
+                            FD_CLR(sock, &master_set);
+                            close(sock);
 
+                            if(FindClient(serverSocket, ClientNum, my_client_p)>=0){
                                 RemoveClient(serverSocket, ClientNum, my_client_p, my_client_log);
                                 ClientNum =  ClientNum - 1;
                                 FD_CLR(serverSocket, &master_set);
@@ -396,6 +380,11 @@ int main(int argc, char **argv)
                         else
                         {
                             printf("Unknow type of HTTP method!\n");
+                            write(sock,"Bad Request!",strlen("Bad Request!"));
+                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+                            ClientNum =  ClientNum - 1;
+                            FD_CLR(sock, &master_set);
+                            close(sock);
                             continue;
                         }
                     }
