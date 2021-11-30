@@ -4,7 +4,7 @@ CC = gcc
 LDFLAGS = -lnsl
 
 a.out: $(obj)
-	$(CC) -o $@ $^ $(LDFLAGS)
+	$(CC) -o $@ $^ $(LDFLAGS) -L/usr/lib -lssl -lcrypto
 
 .PHONY: clean
 clean:

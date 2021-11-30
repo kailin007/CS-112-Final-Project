@@ -2,16 +2,20 @@
  * proxy.c - A proxy server, support GET and CONNET HTTP method 
  * usage: proxy <port>
  */
-
+#include <malloc.h>
 #include <stdio.h>
+#include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <resolv.h>
 #include <string.h>
 #include <netdb.h>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -20,6 +24,7 @@
 #include "Client_List.h"
 #include "Get_request.h"
 #include "Connect_request.h"
+#include "SSL_Client.h"
 
 #define MESSIZE 10485760
 #define BUFSIZE 2048
@@ -27,6 +32,52 @@
 #define DefaultMaxAge 3600
 #define ReadBits 2048
 #define ClientCapacity 1000
+
+void LoadCertificates(SSL_CTX* ctx, char* KeyFile, char* CertFile)
+{
+    /* set the local certificate from CertFile */
+    if ( SSL_CTX_use_certificate_file(ctx, CertFile, SSL_FILETYPE_PEM) <= 0 )
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    /* set the private key from KeyFile (may be the same as CertFile) */
+    if ( SSL_CTX_use_PrivateKey_file(ctx, KeyFile, SSL_FILETYPE_PEM) <= 0 )
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    /* verify private key */
+    if ( !SSL_CTX_check_private_key(ctx) )
+    {
+        fprintf(stderr, "Private key does not match the public certificate\n");
+        abort();
+    }
+}
+
+SSL_CTX *InitServerCTX(void)
+{
+    SSL_CTX *ctx;    
+    ctx = SSL_CTX_new(TLSv1_2_server_method());        /* Create new context */
+    if (ctx == NULL)
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    return ctx;
+}
+
+SSL_CTX *InitClientCTX(void)
+{
+    SSL_CTX *ctx;
+    ctx = SSL_CTX_new(TLSv1_2_client_method());        /* Create new context */
+    if (ctx == NULL)
+    {
+        ERR_print_errors_fp(stderr);
+        abort();
+    }
+    return ctx;
+}
 
 int main(int argc, char **argv)
 {
@@ -42,19 +93,31 @@ int main(int argc, char **argv)
     int optval;                    /* flag value for setsockopt */
     int n;                         /* message byte size */
     int sock;
+    SSL_CTX *ServerCTX;
+    SSL_CTX *ClientCTX;
+    SSL *clientssl;
+    SSL *serverssl;
     fd_set temp_set, master_set;
     char backup[BUFSIZE + 1];
     struct MyCache myCache;
     struct RequestInfo requestInfo; /* store break down request info */
 
+    SSL_library_init();
+    OpenSSL_add_all_algorithms();     /* Load cryptos, et.al. */
+    SSL_load_error_strings();         /* Bring in and register error messages */
+    ServerCTX = InitServerCTX();
+    ClientCTX = InitClientCTX();
+    LoadCertificates(ServerCTX, "key.pem", "ca.pem");
     myCache = initializeMyCache(CacheSize, 200, MESSIZE);
 
     //init my client list
     struct MY_CLIENT **my_client_log = malloc(ClientCapacity * sizeof(struct MY_CLIENT *));
     struct MY_CLIENT ***my_client_p = &my_client_log;
 
-    struct MY_CLIENT **server_log = malloc(ClientCapacity * sizeof(struct MY_CLIENT *));
-    struct MY_CLIENT ***server_p = &server_log;
+    struct SSL_Client **ssl_log = malloc(ClientCapacity * sizeof(struct SSL_Client *));
+    struct SSL_Client ***ssl_p = &ssl_log;
+
+
 
     /* check command line args */
     if (argc != 2)
@@ -101,7 +164,7 @@ int main(int argc, char **argv)
     int fdmax = master_socket;
 
     int ClientNum = 0; /*current number of client we have in our list*/
-    int ServerNum = 0; /*current number of server we have in our list*/
+    int sslNum = 0; /*current number of server we have in our list*/
     while (1)
     {
         temp_set = master_set;
@@ -155,115 +218,32 @@ int main(int argc, char **argv)
             {
                 if (FD_ISSET(sock, &temp_set))
                 {
-                    printf("========================================================================\n");
-                    printf("recived a message form client %d\n", sock);
-                    printf("Current clientNum: %d\n",ClientNum);
+                    // printf("========================================================================\n");
+                    // printf("recived a message form client %d\n", sock);
+                    // printf("Current clientNum: %d\n",ClientNum);
                     int statusCode = getCode(sock, ClientNum, my_client_p);
                     
                     if (statusCode > 0) //If this sock is either Server or Client with connect method.
                     {
-                        printf("Find the status code(>0) for socket\n");
-                        bzero(buf, BUFSIZE);
-                        n = read(sock, buf, 1);
-
+                        int index = FindSSLClient(sock, sslNum, ssl_p);
+                        int buff[4000];
+                        int m;
+                        m = SSL_read((*ssl_p)[index]->sslForThis, buff, 4000);
                         //if the client close the connection, we do the same
                         if (n <= 0)
-                        {   
-                            if(FindClient(sock, ClientNum, my_client_p)>=0){
-                                //remove this client from list
-                                RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                ClientNum =  ClientNum - 1;
-                                FD_CLR(sock, &master_set);
-                                close(sock);
-                            }
-                            continue;
-                        }
-                        //If this is a application type of tls message, forward to other side.
-                        short code = 0;
-                        memcpy((char *)&code, buf, 1);
-                        code = ntohs(code);
-                        if (code <= 5888)
                         {
-                            int target_sock = getCode(sock, ClientNum, my_client_p);
-                            int length = MForwardHeader(sock, target_sock, buf); 
-                            if(length==-1){ // get error when forwarding
-                                if(FindClient(sock, ClientNum, my_client_p)>=0){
-                                    RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                    close(sock);
-                                    ClientNum =  ClientNum - 1;
-                                    FD_CLR(sock, &master_set);
-                                }
-                                if(FindClient(target_sock, ClientNum, my_client_p)>=0){
-                                    RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
-                                    close(target_sock);
-                                    ClientNum =  ClientNum - 1;
-                                    FD_CLR(target_sock, &master_set);
-                                }
-                                continue; // break current while loop     
-                            }
-                            printf("Length = %d\n",length);
-                            int needToSent = length;
-                            while (needToSent != 0)
+                            if (FindClient(sock, ClientNum, my_client_p) >= 0)
                             {
-                                if (needToSent < 8000)
-                                {
-                                    if (ForwardMsg(sock, target_sock, needToSent) == -1) // get error when forwarding
-                                    {
-                                        if(FindClient(sock, ClientNum, my_client_p)>=0){
-                                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                            close(sock);
-                                            ClientNum =  ClientNum - 1;
-                                            FD_CLR(sock, &master_set);
-                                        }
-                                        if(FindClient(target_sock, ClientNum, my_client_p)>=0){
-                                            RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
-                                            close(target_sock);
-                                            ClientNum =  ClientNum - 1;
-                                            FD_CLR(target_sock, &master_set);
-                                        }
-                                        break; // break current while loop                 
-                                    }
-                                    needToSent = 0;
-                                }
-                                else
-                                {       
-                                    if (ForwardMsg(sock, target_sock, 8000) == -1) // get error when forwarding
-                                    {
-                                        if(FindClient(sock, ClientNum, my_client_p)>=0){
-                                            RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                            close(sock);
-                                            ClientNum =  ClientNum - 1;
-                                            FD_CLR(sock, &master_set);
-                                        }
-                                        if(FindClient(target_sock, ClientNum, my_client_p)>=0){
-                                            RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
-                                            close(target_sock);
-                                            ClientNum =  ClientNum - 1;
-                                            FD_CLR(target_sock, &master_set);
-                                        }
-                                        break; // break current while loop
-                                    }
-                                    needToSent -= 8000;
-                                }
-                            }
-                            continue;
-                        }
-
-                        //If its not, read the rest of the buffer.    
-                        n = read(sock, buf+1, BUFSIZE-1);
-
-                        //if the client close the connection, we do the same
-                        if (n <= 0)
-                        {
-                            if(FindClient(sock, ClientNum, my_client_p)>=0){
                                 //remove this client from list
                                 RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                ClientNum =  ClientNum - 1;
+                                ClientNum = ClientNum - 1;
                                 FD_CLR(sock, &master_set);
                                 close(sock);
                             }
                             continue;
                         }
+                        m = SSL_write((*ssl_p)[index]->sslForOther, buff, m);
+                        continue;
                     }
                     else if(statusCode==0 || statusCode==-1 || statusCode==-2) //if this client has status code of 0 or -1 or -2
                     {
@@ -344,11 +324,10 @@ int main(int argc, char **argv)
                             continue;
                         }
                         else if (requestInfo.type == 2)
-                        {                        
-                            //TODO: make tcp connection with the https server
-                            //      sent 200 ok back to client
-                            //      waiting for the client to sent more 
+                        {
                             int ServerSocket = ConnectConduct(&requestInfo, sock);
+
+
                             // get errors when making connection to server
                             if(ServerSocket==-1){
                                 //remove this client from list
@@ -356,6 +335,7 @@ int main(int argc, char **argv)
                                 ClientNum =  ClientNum - 1;
                                 FD_CLR(sock, &master_set);
                                 close(sock);
+                                continue;
                             }
 
                             FD_SET(ServerSocket, &master_set);
@@ -375,6 +355,25 @@ int main(int argc, char **argv)
                             ClientNum = initClient(ServerSocket, ClientNum, my_client_log);
                             UpdateClient(ServerSocket, sock, "", 0, ClientNum, my_client_p, my_client_log);
                             UpdateClient(sock, ServerSocket, "", 0, ClientNum, my_client_p, my_client_log);
+
+
+                            //build ssl to client
+                            clientssl = SSL_new(ServerCTX);
+                            SSL_set_fd(clientssl, sock);
+                            int i;
+                            if ((i = SSL_accept(clientssl)) <= 0) /* do SSL-protocol accept */
+                            {
+                                ERR_print_errors_fp(stderr);
+                            }
+                            //build ssl to server
+                            serverssl = SSL_new(ClientCTX);
+                            SSL_set_fd(serverssl, ServerSocket);
+                            if ((i = SSL_connect(serverssl)) <= 0) /* do SSL-protocol accept */
+                            {
+                                ERR_print_errors_fp(stderr);
+                            }
+                            sslNum = initSSLClient(sock, sslNum, clientssl, serverssl, ssl_log);
+                            sslNum = initSSLClient(ServerSocket, sslNum, serverssl, clientssl, ssl_log);
                             continue;
                         }
                         else
