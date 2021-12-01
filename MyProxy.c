@@ -368,6 +368,7 @@ int main(int argc, char **argv)
                             //build ssl to server
                             serverssl = SSL_new(ClientCTX);
                             SSL_set_fd(serverssl, ServerSocket);
+                            SSL_set_tlsext_host_name(serverssl, requestInfo.host);
                             if ((i = SSL_connect(serverssl)) <= 0) /* do SSL-protocol accept */
                             {
                                 ERR_print_errors_fp(stderr);
