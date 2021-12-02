@@ -8,7 +8,8 @@ sudo apt upgrade
 sudo apt-get install libssl-dev
 ```
 
-##Usage
+## Usage
+
 ```bash
 Make
 # Flage = 1 : enable trusted proxy, Flage = 0 : disable trusted proxy.
