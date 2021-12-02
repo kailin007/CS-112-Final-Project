@@ -31,8 +31,8 @@
 #define MsgBufSize 50000  // forward Msg size 
 #define CacheSize 100
 #define DefaultMaxAge 3600
-#define ClientCapacity 100
-#define sslCapacity 100
+#define ClientCapacity 1000
+#define sslCapacity 1000
 
 void LoadCertificates(SSL_CTX* ctx, char* KeyFile, char* CertFile)
 {
