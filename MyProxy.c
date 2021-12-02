@@ -97,7 +97,7 @@ int main(int argc, char **argv)
     struct sockaddr_in serveraddr; /* server's addr */
     struct sockaddr_in clientaddr; /* client addr */
     struct hostent *hostp;         /* client host info */
-    char buf[BUFSIZE];             
+    char buf[BUFSIZE];
     char Msgbuf[MsgBufSize];
     char message[500];
     char *hostaddrp;               /* dotted decimal host addr string */
@@ -242,7 +242,7 @@ int main(int argc, char **argv)
                                 RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[sslNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
-                                SSL_shutdown(ssl_return->sslcon);
+                                SSL_free(ssl_return->sslcon);
                                 close(ssl_return->sock);
                                 sslNum =  sslNum - 1;
 
@@ -262,7 +262,7 @@ int main(int argc, char **argv)
                                 RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[sslNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
-                                SSL_shutdown(ssl_return->sslcon);
+                                SSL_free(ssl_return->sslcon);
                                 close(ssl_return->sock);
                                 sslNum =  sslNum - 1;
 
@@ -339,7 +339,7 @@ int main(int argc, char **argv)
                                 RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[sslNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
-                                SSL_shutdown(ssl_return->sslcon);
+                                SSL_free(ssl_return->sslcon);
                                 close(ssl_return->sock);
                                 sslNum =  sslNum - 1;
 
@@ -387,7 +387,7 @@ int main(int argc, char **argv)
                                 RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[sslNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
-                                SSL_shutdown(ssl_return->sslcon);
+                                SSL_free(ssl_return->sslcon);
                                 close(ssl_return->sock);
                                 sslNum =  sslNum - 1;
 
@@ -505,7 +505,7 @@ int main(int argc, char **argv)
                             RemoveSSLClientWhenFull(sslNum, ssl_p, ssl_log, ssl_return);
                             free(ssl_log[sslNum-1]);
                             FD_CLR(ssl_return->sock, &master_set);
-                            SSL_shutdown(ssl_return->sslcon);
+                            SSL_free(ssl_return->sslcon);
                             close(ssl_return->sock);
                         }
                         
@@ -534,7 +534,7 @@ int main(int argc, char **argv)
                                 RemoveSSLClient(sock, ClientNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[ClientNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
-                                SSL_shutdown(ssl_return->sslcon);
+                                SSL_free(ssl_return->sslcon);
                                 close(ssl_return->sock);
                                 ClientNum =  ClientNum - 1;
                             }
@@ -552,7 +552,7 @@ int main(int argc, char **argv)
                                     RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                     free(ssl_log[sslNum-1]);
                                     FD_CLR(ssl_return->sock, &master_set);
-                                    SSL_shutdown(ssl_return->sslcon);
+                                    SSL_free(ssl_return->sslcon);
                                     close(ssl_return->sock);
                                     sslNum =  sslNum - 1;
 
