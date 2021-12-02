@@ -8,19 +8,26 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-
 struct SSL_Client
 {
     int sock;
-    SSL *sslForThis;
-    SSL *sslForOther;
+    SSL *sslcon;
+    char message[500];
+    int status;         //-3 = error, cannot find client in the clientlist; -2 = has not sent request yet; -1 = has sent at least one request; >=0 = this client send a connect method
+    int currentLength;
 };
-// add first time client into list, return updated number of client
-int initSSLClient(int socket, int Client_Num, SSL *This, SSL *Other, struct SSL_Client **myclient_log);
-//return index of this client, -1 if such client is not in list
-int FindSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p);
-// return updated number of client
-int RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log);                      
-                                
 
+typedef struct SSl_Return
+{
+    int sock;
+    SSL *sslcon;
+}SSL_Return;
+
+int getSSLCode(int socket, int Client_Num, struct SSL_Client ***myclient_p);
+int initSSLClient(int socket, int Client_Num, SSL *sslcon, struct SSL_Client **myclient_log);
+int FindSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p);
+int UpdateSSLClient(int socket, int statusCode, char *header, int length, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log);
+SSL_Return* RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return);    
+SSL_Return* RemoveSSLClientWhenFull(int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return);                  
+                                
 #endif // SSL_Client_

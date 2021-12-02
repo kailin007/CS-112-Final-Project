@@ -65,22 +65,18 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
         strcpy(myclient_log[i] -> message, (*myclient_p)[i+1] -> message);
         myclient_log[i] -> status = (*myclient_p)[i+1] -> status;
     }
-    //free(myclient_log[Client_Num-1]);
     return socket;
 }                
 
-//when the list is full delete client has not yet sent a full request first in first out, then client with 
+//when the list is full, delete client that has finished a request first (status code = 0): if not exist such client, evict the first client in the list
 int RemoveWhenFull(int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
     for (int i = 0; i < Client_Num; i++)
     {
-        if((*myclient_p)[i] -> status == 0)
+        if((*myclient_p)[i] -> status == -1)
         {
             return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);
         }
-    }
-    for (int i = 0; i < Client_Num; i++)
-    {
-        if((*myclient_p)[i] -> status == -1)
+        if((*myclient_p)[i] -> status == -2)
         {
             return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);
         }

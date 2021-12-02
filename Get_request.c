@@ -1,8 +1,7 @@
 #include "Get_request.h"
 
-#define BUFSIZE 10485760
+#define BUFSIZE 500000
 #define DefaultMaxAge 3600
-#define ReadBits 2048
 #define h_addr h_addr_list[0]
 
 /*

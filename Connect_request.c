@@ -43,10 +43,9 @@ int ConnectConduct(struct RequestInfo *requestInfo, int sock){
     return serverSock; // successfully exit
 }
 
-int ForwardHeader(int srcSock, int dstSock)
+int ForwardHeader(int srcSock, int dstSock, unsigned char *buf)
 {
     int n;
-    unsigned char buf[BUFSIZ];
     short number = 0;
     n = read(srcSock, buf, 5);
     if(n<=0){
@@ -83,10 +82,8 @@ int MForwardHeader(int srcSock, int dstSock, unsigned char *buf)
 }
 
 // forward messages from srcSock to dstSock; return the length of message.
-int ForwardMsg(int srcSock, int dstSock, int length){
-    int BUFSIZE = 8192;
+int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
     int n;
-    char buf[BUFSIZE];
     int recved = 0;
     while (recved < length)
     {
@@ -103,6 +100,31 @@ int ForwardMsg(int srcSock, int dstSock, int length){
     if(n<=0){
         printf("CONNECT: error writing to socket %d\n", dstSock);
         return -1;
+    }
+
+    return n;
+}
+
+// forward messages from srcSock to dstSock; return the length of message.
+int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf){
+    int n;
+    int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
+    if(srctag==-1)return -1;
+    int dsttag = FindSSLClient(dstSock, ClientNum, myclient_p);
+    if(dsttag==-1)return -1;
+    SSL* srcSSL = myclient_log[srctag]->sslcon;
+    SSL* dstSSL = myclient_log[dsttag]->sslcon;
+
+    bzero(buf,length);
+    n = SSL_read(srcSSL, buf, length);
+    
+    if(n<=0){
+        printf("CONNECT: error reading from socket %d\n", srcSock);
+    }
+
+    n = SSL_write(dstSSL, buf, n);
+    if(n<=0){
+        printf("CONNECT: error writing to socket %d\n", dstSock);
     }
 
     return n;
