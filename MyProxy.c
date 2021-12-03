@@ -259,6 +259,7 @@ int main(int argc, char **argv)
                             printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
                             
                             if(n<=0){
+                                // remove ssl src socket
                                 RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
                                 free(ssl_log[sslNum-1]);
                                 FD_CLR(ssl_return->sock, &master_set);
@@ -271,6 +272,21 @@ int main(int argc, char **argv)
                                 FD_CLR(rm_sock, &master_set);
                                 close(rm_sock);
                                 ClientNum =  ClientNum - 1;
+
+                                // remove ssl target socket
+                                RemoveSSLClient(target_sock, sslNum, ssl_p, ssl_log,ssl_return);
+                                free(ssl_log[sslNum-1]);
+                                FD_CLR(ssl_return->sock, &master_set);
+                                SSL_free(ssl_return->sslcon);
+                                close(ssl_return->sock);
+                                sslNum =  sslNum - 1;
+
+                                rm_sock = RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
+                                free(my_client_log[ClientNum-1]);
+                                FD_CLR(rm_sock, &master_set);
+                                close(rm_sock);
+                                ClientNum =  ClientNum - 1;
+
                                 continue;
                             }
                             continue;

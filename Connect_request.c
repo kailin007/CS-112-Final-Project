@@ -106,25 +106,35 @@ int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
 }
 
 // forward messages from srcSock to dstSock; return the length of message.
-int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf){
+int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf)
+{
     int n;
     int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
-    if(srctag==-1)return -1;
+    if (srctag == -1)
+        return -1;
     int dsttag = FindSSLClient(dstSock, ClientNum, myclient_p);
-    if(dsttag==-1)return -1;
-    SSL* srcSSL = myclient_log[srctag]->sslcon;
-    SSL* dstSSL = myclient_log[dsttag]->sslcon;
+    if (dsttag == -1)
+        return -1;
+    SSL *srcSSL = myclient_log[srctag]->sslcon;
+    SSL *dstSSL = myclient_log[dsttag]->sslcon;
 
-    bzero(buf,length);
+    bzero(buf, length);
     n = SSL_read(srcSSL, buf, length);
-    
-    if(n<=0){
+
+    if (n <= 0)
+    {
         printf("CONNECT: error reading from socket %d\n", srcSock);
     }
 
     n = SSL_write(dstSSL, buf, n);
-    if(n<=0){
+    if (n <= 0)
+    {
         printf("CONNECT: error writing to socket %d\n", dstSock);
+    }
+
+    buf[n] = '\0';
+    if(strstr(buf, "0\r\n\r\n") != NULL){
+        return 0;
     }
 
     return n;
