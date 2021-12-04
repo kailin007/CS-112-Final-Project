@@ -24,6 +24,10 @@ struct MyCache initializeMyCache(int cacheSize, int keySize, int valueSize)
 // save into cache
 int putIntoMyCache(char *key, char *value, int maxAge, int valueLength, struct MyCache *myCache)
 {
+    // printf("key: %s\n", key);
+    // printf("valueLength: %d\n", valueLength);
+    // printf("putIntoMyCache:\n%.*s\n", valueLength, value);
+
     int i;
     int keyExist = 0, availablePosition = 0; // 0: false; 1: true.
     int leastUsedPosition = 0, leastUsedTime = 0;
@@ -98,8 +102,6 @@ int putIntoMyCache(char *key, char *value, int maxAge, int valueLength, struct M
 // return 0 if cached; -1 otherwise.
 int getFromMyCache(char *key, char *value, int *valueLength, struct MyCache *myCache)
 {
-    // printf("key:%s, value:%s", key, value);
-    // strcpy(value, "NA");
     int i;
     long currentTime = time(NULL);
     for (i = 0; i < myCache->cacheSize; i++)
@@ -111,6 +113,9 @@ int getFromMyCache(char *key, char *value, int *valueLength, struct MyCache *myC
             *valueLength = myCache->cacheUnits[i].valueLength;
             memcpy(value, myCache->cacheUnits[i].value, *valueLength);
             myCache->cacheUnits[i].lastUsedTime = currentTime;
+            // printf("key: %s\n", key);
+            // printf("valueLength: %d\n", *valueLength);
+            // printf("getFromMyCache:\n%.*s\n", *valueLength, value);
             return 0;
         }
     }
