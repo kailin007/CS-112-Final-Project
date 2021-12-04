@@ -17,11 +17,16 @@
 #include <openssl/err.h>
 #include "text_analysis.h"
 #include "SSL_Client.h"
+#include "my_cache.h"
+
+#define CacheMaxAge 600
+#define CacheValueSize 1048576
+#define MaxUrlLength 10000
 
 int ConnectConduct(struct RequestInfo *requestInfo, int sock); // establish TCP connect to server according to CONNECT request
 int ForwardMsg(int srcSock, int dstSock, int length, char* buf); // forward messages from srcSock to dstSock; return the length of message.
 int ForwardHeader(int srcSock, int dstSock, unsigned char *buf);
 int MForwardHeader(int srcSock, int dstSock, unsigned char *buf);
-int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf);                     
+int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf, struct MyCache* myCache);                     
 
 #endif // MY_CONNECT_

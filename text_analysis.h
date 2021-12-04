@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MaxSingleLineLength 200
+#define MaxSingleLineLength 10000
 
 struct RequestInfo
 {
@@ -26,5 +26,6 @@ struct ResponseInfo
 
 struct RequestInfo AnalyzeRequest(char *text);
 struct ResponseInfo AnalyzeResponse(char *text);
+void MakeKey(char *Host, char *Port, char *url, char *key);
 
 #endif // FILE_ANALYSIS_

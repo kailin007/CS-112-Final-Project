@@ -1,4 +1,5 @@
 #include "Connect_request.h"
+
 #define h_addr h_addr_list[0]
 
 // establish TCP connect to server according to CONNECT request
@@ -106,7 +107,7 @@ int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
 }
 
 // forward messages from srcSock to dstSock; return the length of message.
-int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf)
+int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf, struct MyCache* myCache)
 {
     int n;
     int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
@@ -118,13 +119,61 @@ int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SS
     SSL *srcSSL = myclient_log[srctag]->sslcon;
     SSL *dstSSL = myclient_log[dsttag]->sslcon;
 
-    bzero(buf, length);
-    n = SSL_read(srcSSL, buf, length);
+    struct RequestInfo requestInfo;
 
+    bzero(buf, bufSize);
+    n = SSL_read(srcSSL, buf, bufSize);
     if (n <= 0)
     {
         printf("CONNECT: error reading from socket %d\n", srcSock);
     }
+    else{
+        char msg[MaxUrlLength];
+        bzero(msg, MaxUrlLength);
+        getSSLMsg(msg, dstSock, ClientNum, myclient_p, myclient_log);
+        if(strcmp(msg, "exceed_cache_value_size") != 0){
+            // content size doesn't exceed cache value size, cache it
+            requestInfo = AnalyzeRequest(buf);
+            if(requestInfo.type == 1){
+                // if it's request, save the request header to client message
+                char host_url[MaxUrlLength];
+                MakeKey(requestInfo.host, requestInfo.port, requestInfo.url, host_url);
+                int i = strlen(host_url);
+                UpdateSSLClient(dstSock, srcSock, host_url, strlen(host_url) + 1, ClientNum, myclient_p, myclient_log);
+            }
+            else{
+                // msg is from the server, save it to cache
+                char host_url[MaxUrlLength], *cachedMsg;
+                cachedMsg = (char *) malloc (CacheValueSize * sizeof(char));
+                int headerLength = 0, valueLength = 0;
+                // get request header
+                bzero(host_url, MaxUrlLength);
+                headerLength = getSSLMsg(host_url, dstSock, ClientNum, myclient_p, myclient_log);
+                // make it a string
+                host_url[headerLength] = '\0';
+                // get already cached part
+                int i = getFromMyCache(host_url, cachedMsg, &valueLength, myCache);
+
+                // connect new part
+                if(n + valueLength < CacheValueSize){
+                    // printf("before memcpy(cachedMsg + valueLength, buf, n);\n");
+                    memcpy(cachedMsg + valueLength, buf, n);
+                    // save it back to cache
+                    putIntoMyCache(host_url, cachedMsg, CacheMaxAge, valueLength + n, myCache);
+                }
+                else{
+                    // if content exceed cache value size, delete it from cache and don't cache it
+                    deleteFromMyCache(host_url, myCache);
+                    UpdateSSLClient(dstSock, srcSock, "exceed_cache_value_size", strlen("exceed_cache_value_size") + 1, ClientNum, myclient_p, myclient_log);
+                }
+                if(cachedMsg != NULL){
+                    // in case of double free error (minor case)
+                    free(cachedMsg);
+                }
+            }
+        } 
+    }
+    
 
     n = SSL_write(dstSSL, buf, n);
     if (n <= 0)
@@ -132,8 +181,9 @@ int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SS
         printf("CONNECT: error writing to socket %d\n", dstSock);
     }
 
-    buf[n] = '\0';
-    if(strstr(buf, "0\r\n\r\n") != NULL){
+    // if received the end of the response, return 0 and close both sockets at main
+    if(requestInfo.type != 1 && buf[n-5]=='0' && buf[n-4]=='\r' && buf[n-3]=='\n' && buf[n-2]=='\r' && buf[n-1]=='\n'){
+        printf("Cache used: %d\n", numUsed(*myCache));
         return 0;
     }
 

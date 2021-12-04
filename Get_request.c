@@ -13,18 +13,6 @@ void error(char *msg)
     exit(1);
 }
 
-
-void MakeKey(char *Host, char *Port, char *GET, char *key)
-{
-    strcpy(key, "");
-    strcpy(key, Host);
-    strcat(key, ":");
-    strcat(key, Port);
-    strcat(key, "_");
-    strcat(key, GET);
-}
-
-
 int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache)
 {
     struct sockaddr_in serveraddr, serveraddr1; /* server's addr */

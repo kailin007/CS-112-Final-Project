@@ -133,3 +133,13 @@ struct ResponseInfo AnalyzeResponse(char *text)
 
     return responseInfo;
 }
+
+void MakeKey(char *Host, char *Port, char *url, char *key)
+{
+    strcpy(key, "");
+    strcpy(key, Host);
+    strcat(key, ":");
+    strcat(key, Port);
+    strcat(key, "_");
+    strcat(key, url);
+}
