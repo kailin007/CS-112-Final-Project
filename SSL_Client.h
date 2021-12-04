@@ -12,7 +12,7 @@ struct SSL_Client
 {
     int sock;
     SSL *sslcon;
-    char message[500];
+    char message[10000];
     int status;         //-3 = error, cannot find client in the clientlist; -2 = has not sent request yet; -1 = has sent at least one request; >=0 = this client send a connect method
     int currentLength;
 };
@@ -28,6 +28,7 @@ int initSSLClient(int socket, int Client_Num, SSL *sslcon, struct SSL_Client **m
 int FindSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p);
 int UpdateSSLClient(int socket, int statusCode, char *header, int length, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log);
 SSL_Return* RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return);    
-SSL_Return* RemoveSSLClientWhenFull(int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return);                  
+SSL_Return* RemoveSSLClientWhenFull(int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return);    
+int getSSLMsg(char* msg, int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log);
                                 
 #endif // SSL_Client_

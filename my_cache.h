@@ -27,6 +27,8 @@ struct MyCache
 struct MyCache initializeMyCache(int cacheSize, int keySize, int valueSize);
 int putIntoMyCache(char *key, char *value, int maxAge, int valueLength, struct MyCache *myCache); // return 0 if saved; otherwise return -1
 int getFromMyCache(char *key, char *value, int *valueLength, struct MyCache *myCache);            // return 0 if found; otherwise return -1 and value = "NA"
+int deleteFromMyCache(char *key, struct MyCache* myCache);
 int getAge(char *key, struct MyCache myCache);
+int numUsed(struct MyCache myCache); // return number of vaild used cache (not include stale and deleted)
 
 #endif // MY_CACHE_

@@ -26,10 +26,11 @@
 #include "Connect_request.h"
 #include "SSL_Client.h"
 
-#define MESSIZE 500000 // cache object size
+#define CacheSize 100
+#define CacheKeySize 10000
+#define MESSIZE 1048576 // cache object size = 1 MB
 #define BUFSIZE 5000  // request buffer/header front 5 bytes
 #define MsgBufSize 50000  // forward Msg size 
-#define CacheSize 100
 #define DefaultMaxAge 3600
 #define ClientCapacity 1000
 #define sslCapacity 1000
@@ -114,14 +115,13 @@ int main(int argc, char **argv)
     struct MY_CLIENT **my_client_log = malloc(ClientCapacity * sizeof(struct MY_CLIENT));
     struct MY_CLIENT ***my_client_p = &my_client_log;
 
-
     SSL_Return* ssl_return = malloc(sizeof(SSL_Return));
 
     fd_set temp_set, master_set;
     char backup[BUFSIZE + 1];
     struct MyCache myCache;
     struct RequestInfo requestInfo; /* store break down request info */
-    myCache = initializeMyCache(CacheSize, 200, MESSIZE);
+    myCache = initializeMyCache(CacheSize, CacheKeySize, MESSIZE);
 
     if(type == 1){
         SSL_library_init();
@@ -255,7 +255,7 @@ int main(int argc, char **argv)
                             }
                             bzero(Msgbuf,MsgBufSize);
                             printf("CONNECT Method: sender socket:%d, receiver socket %d\n",sock, target_sock);
-                            int n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf); 
+                            int n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache); 
                             printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
                             
                             if(n<=0){
@@ -274,18 +274,23 @@ int main(int argc, char **argv)
                                 ClientNum =  ClientNum - 1;
 
                                 // remove ssl target socket
-                                RemoveSSLClient(target_sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[sslNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                sslNum =  sslNum - 1;
+                                if(RemoveSSLClient(target_sock, sslNum, ssl_p, ssl_log,ssl_return) != NULL){
+                                    free(ssl_log[sslNum-1]);
+                                    FD_CLR(ssl_return->sock, &master_set);
+                                    SSL_free(ssl_return->sslcon);
+                                    close(ssl_return->sock);
+                                    sslNum =  sslNum - 1;
+                                }
+                                
 
                                 rm_sock = RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
+                                if(rm_sock != NULL){
+                                    free(my_client_log[ClientNum-1]);
+                                    FD_CLR(rm_sock, &master_set);
+                                    close(rm_sock);
+                                    ClientNum =  ClientNum - 1;
+                                }
+                                
 
                                 continue;
                             }

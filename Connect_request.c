@@ -1,4 +1,5 @@
 #include "Connect_request.h"
+
 #define h_addr h_addr_list[0]
 
 // establish TCP connect to server according to CONNECT request
@@ -106,7 +107,7 @@ int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
 }
 
 // forward messages from srcSock to dstSock; return the length of message.
-int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf)
+int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf, struct MyCache* myCache)
 {
     int n;
     int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
@@ -118,24 +119,104 @@ int ForwardSSLMsg(int srcSock, int dstSock, int length, int ClientNum, struct SS
     SSL *srcSSL = myclient_log[srctag]->sslcon;
     SSL *dstSSL = myclient_log[dsttag]->sslcon;
 
-    bzero(buf, length);
-    n = SSL_read(srcSSL, buf, length);
+    struct RequestInfo requestInfo;
+    char host_url[MaxUrlLength], *cachedMsg;
+    cachedMsg = (char *) malloc (CacheValueSize * sizeof(char));
+    int headerLength = 0, valueLength = 0;
+    int isCached = 0;
 
+    bzero(buf, bufSize);
+    n = SSL_read(srcSSL, buf, bufSize);
     if (n <= 0)
     {
         printf("CONNECT: error reading from socket %d\n", srcSock);
     }
+    else{
+        requestInfo = AnalyzeRequest(buf);
+        if(requestInfo.type == 1){
+            // if the msg is GET (from client)
+            bzero(host_url, MaxUrlLength);
+            MakeKey(requestInfo.host, requestInfo.port, requestInfo.url, host_url);
+            // save the host_url to client message
+            UpdateSSLClient(srcSock, dstSock, host_url, strlen(host_url) + 1, ClientNum, myclient_p, myclient_log);
+            bzero(cachedMsg, CacheValueSize * sizeof(char));
+            // find request from cache
+            int i = getFromMyCache(host_url, cachedMsg, &valueLength, myCache);
+            if(i == 0){
+                // if the request has been cached, respond from cache
+                isCached = 1;
+            }
+        }
+        else{
+            // if the msg is from server
+            bzero(host_url, MaxUrlLength);
+            // get request header (host_url) from corrosponding client message
+            headerLength = getSSLMsg(host_url, dstSock, ClientNum, myclient_p, myclient_log);
+            if(strcmp(host_url, "exceed_cache_value_size") != 0){
+                // content size doesn't exceed cache value size, cache it
+                bzero(cachedMsg, CacheValueSize * sizeof(char));
+                // get already cached part
+                int i = getFromMyCache(host_url, cachedMsg, &valueLength, myCache);
 
-    n = SSL_write(dstSSL, buf, n);
-    if (n <= 0)
-    {
-        printf("CONNECT: error writing to socket %d\n", dstSock);
+                // connect new part
+                if(n + valueLength < CacheValueSize){
+                    // printf("before memcpy(cachedMsg + valueLength, buf, n);\n");
+                    memcpy(cachedMsg + valueLength, buf, n);
+                    // save it back to cache
+                    putIntoMyCache(host_url, cachedMsg, CacheMaxAge, valueLength + n, myCache);
+                }
+                else{
+                    // if content exceed cache value size, delete it from cache and don't cache it
+                    deleteFromMyCache(host_url, myCache);
+                    UpdateSSLClient(dstSock, srcSock, "exceed_cache_value_size", strlen("exceed_cache_value_size") + 1, ClientNum, myclient_p, myclient_log);
+                }
+            } 
+        }
     }
 
-    buf[n] = '\0';
-    if(strstr(buf, "0\r\n\r\n") != NULL){
+    if(isCached){
+        // if request has been cached, respond from cache
+        printf("start sending from cache\n");
+        int bytesSent = 0;
+        char temp[500];
+        while(bytesSent < valueLength){
+            // send cached content to client (500 bytes each time)
+            if(valueLength - bytesSent >= 500){
+                n = 500;
+            }
+            else{
+                n = valueLength - bytesSent;
+            }
+            bzero(temp, 500);
+            memcpy(temp, cachedMsg + bytesSent, n);
+            bytesSent += n;
+            n = SSL_write(srcSSL, temp, n);
+            // printf("sent %d bytes to socket %d\n", n, srcSock);
+            if(n < 0){
+                // TCP error
+                printf("CONNECT: error writing to socket %d\n", srcSock);
+                free(cachedMsg);
+                return 0;
+            }
+        }
+
+        free(cachedMsg);
+        printf("sent %d bytes from cache\n", valueLength);
         return 0;
     }
-
-    return n;
+    else{
+        // if the request hasn't been cached, sent it to server
+        free(cachedMsg);
+        n = SSL_write(dstSSL, buf, n);
+        if (n <= 0)
+        {
+            printf("CONNECT: error writing to socket %d\n", dstSock);
+        }
+        // if received the end of the response, return 0 and close both sockets at main
+        if(requestInfo.type != 1 && buf[n-5]=='0' && buf[n-4]=='\r' && buf[n-3]=='\n' && buf[n-2]=='\r' && buf[n-1]=='\n'){
+            printf("Cache used: %d\n", numUsed(*myCache));
+            return 0;
+        }
+        return n; // return the bytes sent
+    }
 }

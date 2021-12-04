@@ -1,5 +1,44 @@
 #include "text_analysis.h"
 
+void getHostFromUrl(char* url, char* host, char* port){
+    char *p1, *p2, *p3, *p4, *start, *end;
+    // default port: 80
+    strcpy(port, "80");
+
+    p1 = strstr(url, "//");
+    if(p1 == NULL){
+        // if no prototal
+        start = url;
+    }
+    else{
+        start = p1 + 2;
+    }
+
+    p2 = strchr(start, '/');
+    p3 = strchr(start, '\0');
+    p4 = strchr(start, ':');
+
+    
+
+    if(p2 != NULL){
+        end = p2 - 1;
+    }
+    else{
+        end = p3 - 1;
+    }
+
+    int hostLength = end - start + 1;
+    memcpy(host, start, hostLength);
+    host[hostLength] = '\0'; // make it a string
+
+    if(p4 != NULL){
+        // if there's port
+        int portLength = end - (p4 + 1) + 1;
+        memcpy(port, p4 + 1, portLength);
+        port[portLength] = '\0';
+    }
+}
+
 // parameter: a single line of input file, return the SingleLineInfo struct
 struct RequestInfo AnalyzeRequest(char *text)
 {
@@ -27,6 +66,7 @@ struct RequestInfo AnalyzeRequest(char *text)
         // error case
         if (buffer == NULL)
         {
+            getHostFromUrl(requestInfo.url, requestInfo.host, requestInfo.port);
             return requestInfo;
         }
         else
@@ -132,4 +172,15 @@ struct ResponseInfo AnalyzeResponse(char *text)
     }
 
     return responseInfo;
+}
+
+void MakeKey(char *Host, char *Port, char *url, char *key)
+{
+    strcpy(key, "");
+    strcpy(key, Host);
+    strcat(key, ":");
+    strcat(key, Port);
+    strcat(key, "_");
+    strcat(key, url);
+    printf("MakeKey: %s\n", key);
 }
