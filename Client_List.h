@@ -6,7 +6,7 @@
 #include <string.h>
 #include <time.h>
 
-#define BufSize 1000
+#define BufSize 3000
 
 struct MY_CLIENT
 {

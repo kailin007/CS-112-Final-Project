@@ -12,7 +12,7 @@ struct SSL_Client
 {
     int sock;
     SSL *sslcon;
-    char message[1000];
+    char message[3000];
     int status;         //-3 = error, cannot find client in the clientlist; -2 = has not sent request yet; >=0 = this client send a connect method
     int currentLength;
 };

@@ -130,7 +130,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     }
     else{
         requestInfo = AnalyzeRequest(buf);
-        printf("requestInfo.type: %d\n",requestInfo.type);
+        printf("inneere requestInfo.host: %s\n",requestInfo.host);
         if(requestInfo.type == 1){
             // if the msg is GET (from client)
             bzero(host_url, MaxUrlLength);

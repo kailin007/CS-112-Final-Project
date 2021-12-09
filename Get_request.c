@@ -1,7 +1,7 @@
 #include "Get_request.h"
 
 #define BUFSIZE 5242880
-#define ReqBuf 1000
+#define ReqBuf 3000
 #define DefaultMaxAge 600
 #define h_addr h_addr_list[0]
 
