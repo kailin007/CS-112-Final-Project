@@ -3,7 +3,7 @@
 int getSSLCode(int socket, int Client_Num, struct SSL_Client ***myclient_p){
     int target = FindClient(socket, Client_Num, myclient_p);
     if(target==-1){
-        printf("Can not find ssl client you seek for in the ssl list!\n");
+        //printf("Can not find ssl client you seek for in the ssl list!\n");
         return -3;
     }
     int c_status = (*myclient_p)[target] -> status;
@@ -13,7 +13,7 @@ int getSSLCode(int socket, int Client_Num, struct SSL_Client ***myclient_p){
 int getSSLMsg(char* msg, int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log){
     int target = FindClient(socket, Client_Num, myclient_p);
     if(target==-1){
-        printf("Can not find ssl client you seek for in the ssl list!\n");
+        //printf("Can not find ssl client you seek for in the ssl list!\n");
         return -3;
     }
     // char* test = myclient_log[target] -> message;
@@ -38,11 +38,13 @@ int UpdateSSLClient(int socket, int statusCode, char *header, int length, int Cl
     int target = FindClient(socket, Client_Num, myclient_p);
     if (target == -1)
     {
-        printf("Can not find socket you want to update in the list!\n");
+        //printf("Can not find socket you want to update in the list!\n");
         return -3;
     }
+    bzero(myclient_log[target] -> message, 10000);
+    memcpy(myclient_log[target] -> message, header, length); 
     // printf("before memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);\n");
-    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
+    //memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
     myclient_log[target] -> status = statusCode;
     if(statusCode != -1){
         int i = myclient_log[target] -> currentLength;
@@ -73,7 +75,7 @@ SSL_Return* RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myc
     int target = FindClient(socket, Client_Num, myclient_p);
     if (target == -1)
     {
-        printf("Can not find ssl client you seek for in the ssl list!\n");
+        //printf("Can not find ssl client you seek for in the ssl list!\n");
         return NULL;
     }
 
@@ -92,14 +94,10 @@ SSL_Return* RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myc
     return ssl_return;
 }
 
-//when the list is full, delete client that has finished a request first (status code = 0): if not exist such client, evict the first client in the list
+//when the list is full, delete client that has not sent a request yet(status code = -2): if not exist such client, evict the first client in the list
 SSL_Return* RemoveSSLClientWhenFull(int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return){
     for (int i = 0; i < Client_Num; i++)
     {
-        if((*myclient_p)[i] -> status == -1)
-        {
-            return RemoveSSLClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log, ssl_return);
-        }
         if((*myclient_p)[i] -> status == -2)
         {
             return RemoveSSLClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log, ssl_return);

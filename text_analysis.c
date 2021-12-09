@@ -18,8 +18,6 @@ void getHostFromUrl(char* url, char* host, char* port){
     p3 = strchr(start, '\0');
     p4 = strchr(start, ':');
 
-    
-
     if(p2 != NULL){
         end = p2 - 1;
     }
@@ -66,7 +64,7 @@ struct RequestInfo AnalyzeRequest(char *text)
         // error case
         if (buffer == NULL)
         {
-            getHostFromUrl(requestInfo.url, requestInfo.host, requestInfo.port);
+            //getHostFromUrl(requestInfo.url, requestInfo.host, requestInfo.port);
             return requestInfo;
         }
         else
@@ -100,6 +98,7 @@ struct RequestInfo AnalyzeRequest(char *text)
     buffer = strstr(text, "CONNECT");
     if (buffer != NULL)
     {
+        if(strstr(text, "Host:")==NULL){return requestInfo;}
         p1 = strchr(buffer, ' ');
         p2 = strchr(p1 + 1, ':');
         p3 = strchr(p1 + 1, ' ');

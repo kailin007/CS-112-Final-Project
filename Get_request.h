@@ -18,7 +18,6 @@
 #include "Client_List.h"
 
 int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache);
-
-                     
-
+void rewrite_header(struct RequestInfo *requestInfo, char* rewrite_req);
+                   
 #endif // MY_GET_

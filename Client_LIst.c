@@ -24,7 +24,7 @@ int FindClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
 int getCode(int socket, int Client_Num, struct MY_CLIENT ***myclient_p){
     int target = FindClient(socket, Client_Num, myclient_p);
     if(target==-1){
-        printf("Can not find socket you seek for in the list!\n");
+        //printf("Can not find socket you seek for in the list!\n");
         return -3;
     }
     int c_status = (*myclient_p)[target] -> status;
@@ -35,10 +35,12 @@ int UpdateClient(int socket, int statusCode, char *header, int length, int Clien
     int target = FindClient(socket, Client_Num, myclient_p);
     if (target == -1)
     {
-        printf("Can not find socket you want to update in the list!\n");
+        //printf("Can not find socket you want to update in the list!\n");
         return -3;
     }
-    memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
+    bzero(myclient_log[target] -> message, BufSize);
+    memcpy(myclient_log[target] -> message, header, length); 
+    //memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
     myclient_log[target] -> status = statusCode;
     if(statusCode != -1){
         myclient_log[target] -> currentLength += length;        // add current length of message, so we can cat the message using it.
@@ -55,7 +57,7 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
     
     if (target == -1)
     {
-        printf("Can not find socket you want to remove in the list!\n");
+        //printf("Can not find socket you want to remove in the list!\n");
         return -3;
     }
     printf("Removing client %d from our list of client.\n",socket);
@@ -68,14 +70,10 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
     return socket;
 }                
 
-//when the list is full, delete client that has finished a request first (status code = 0): if not exist such client, evict the first client in the list
+//when the list is full, delete client that has not sent a request yet(status code = -2): if not exist such client, evict the first client in the list
 int RemoveWhenFull(int Client_Num, struct MY_CLIENT ***myclient_p, struct MY_CLIENT **myclient_log){
     for (int i = 0; i < Client_Num; i++)
     {
-        if((*myclient_p)[i] -> status == -1)
-        {
-            return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);
-        }
         if((*myclient_p)[i] -> status == -2)
         {
             return RemoveClient((*myclient_p)[i] -> sock, Client_Num, myclient_p, myclient_log);

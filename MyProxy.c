@@ -27,11 +27,11 @@
 #include "SSL_Client.h"
 
 #define CacheSize 100
-#define CacheKeySize 10000
-#define MESSIZE 1048576 // cache object size = 1 MB
-#define BUFSIZE 5000  // request buffer/header front 5 bytes
+#define CacheKeySize 1000
+#define BUFSIZE 1000  // request buffer/header front 5 bytes
+#define MESSIZE 5242880 // cache object size = 5 MB
 #define MsgBufSize 50000  // forward Msg size 
-#define DefaultMaxAge 3600
+#define DefaultMaxAge 600
 #define ClientCapacity 1000
 #define sslCapacity 1000
 
@@ -81,16 +81,55 @@ SSL_CTX *InitClientCTX(void)
     return ctx;
 }
 
+int Remove_Client_List_when_full(int ClientNum, struct MY_CLIENT **my_client_log, struct MY_CLIENT ***my_client_p, fd_set* master_set){
+    printf("Reach the maximum client capacity, evict some clients!!!!!!!\n");
+    int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
+    free(my_client_log[ClientNum-1]);
+    FD_CLR(rm_sock, master_set);
+    close(rm_sock);
+    ClientNum =  ClientNum - 1;
+    return ClientNum;
+}
+
+int Remove_SSL_when_full(int sslNum, struct SSL_Client **ssl_log, struct SSL_Client ***ssl_p, SSL_Return* ssl_return, fd_set* master_set){
+    printf("Reach the maximum SSL connections capacity, evict some ssl clients!!!!!!!\n");
+    RemoveSSLClientWhenFull(sslNum, ssl_p, ssl_log, ssl_return);
+    free(ssl_log[sslNum-1]);
+    FD_CLR(ssl_return->sock, master_set);
+    SSL_free(ssl_return->sslcon);
+    sslNum =  sslNum - 1;
+    return sslNum;
+}
+
+int Remove_SSL_client(int sock, int sslNum, 
+                      fd_set* master_set, struct SSL_Client **ssl_log, struct SSL_Client ***ssl_p, SSL_Return* ssl_return){
+        RemoveSSLClient(sock, sslNum, ssl_p, ssl_log, ssl_return);
+        free(ssl_log[sslNum-1]);
+        FD_CLR(ssl_return->sock, master_set);
+        SSL_free(ssl_return->sslcon);
+        sslNum =  sslNum - 1;
+        return sslNum;
+}
+
+int Remove_client(int sock, int ClientNum, struct MY_CLIENT **my_client_log, struct MY_CLIENT ***my_client_p, fd_set* master_set){
+        int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
+        free(my_client_log[ClientNum-1]);
+        FD_CLR(rm_sock, master_set);
+        close(rm_sock);
+        ClientNum =  ClientNum - 1;
+        return ClientNum;
+}
+
 int main(int argc, char **argv)
 {
     /* check command line args */
     if (argc != 3)
     {
-        fprintf(stderr, "usage: %s <port> <1(trusted proxy)/0(secure proxy)>\n", argv[0]);
+        fprintf(stderr, "usage: %s <port> <1(enable trusted proxy)/0(disable trusted proxy)>\n", argv[0]);
         exit(1);
     }
     int portno = atoi(argv[1]);  /* port to listen on */
-    int type = atoi(argv[2]); //0: secure proxy, 1: trusted proxy
+    int type = atoi(argv[2]); //1(enable trusted proxy),0(disable trusted proxy)
 
     int master_socket;             /* listening socket */
     int client_socket;             /* connection socket */
@@ -196,8 +235,6 @@ int main(int argc, char **argv)
                 close(client_socket);
                 continue;
             }
-            printf("Proxy established TCP connection with client %s (%s) that is socket %d\n",
-                   hostp->h_name, hostaddrp, client_socket);
 
             //put socket into master set
             FD_SET(client_socket, &master_set);
@@ -208,12 +245,7 @@ int main(int argc, char **argv)
                             
             if (ClientNum >= ClientCapacity)
             {
-                printf("Reach the maximum client capacity, evict some clients!!!!!!!\n");
-                int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
-                free(my_client_log[ClientNum-1]);
-                FD_CLR(rm_sock, &master_set);
-                close(rm_sock);
-                ClientNum =  ClientNum - 1;
+                ClientNum = Remove_Client_List_when_full(ClientNum, my_client_log, my_client_p, &master_set);
             }
 
             ClientNum = initClient(client_socket, ClientNum, my_client_log);
@@ -229,69 +261,30 @@ int main(int argc, char **argv)
                     printf("Recived a message from socket %d\n", sock);
                     printf("Current clients in total: %d\n",ClientNum);
                     if(type==1){printf("Current ssl clients in total: %d\n",sslNum);}
-                    int statuscode;
-                    
-                    statuscode = getCode(sock, ClientNum, my_client_p);
-                    printf("statuscode: %d\n",statuscode);
+                    int statuscode = getCode(sock, ClientNum, my_client_p);
  
                     if (statuscode >= 0) //If this sock is either Server or Client with CONNECT method.
                     {
                         if(type == 1){// if this is a trusted proxy
                             int target_sock = getSSLCode(sock, sslNum, ssl_p);
                             if(target_sock<0){
-                                RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[sslNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                sslNum =  sslNum - 1;
-
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
+                                sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                 continue;
                             }
+
                             bzero(Msgbuf,MsgBufSize);
-                            printf("CONNECT Method: sender socket:%d, receiver socket %d\n",sock, target_sock);
                             int n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache); 
                             printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
                             
                             if(n<=0){
                                 // remove ssl src socket
-                                RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[sslNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                sslNum =  sslNum - 1;
-
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-
+                                sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
                                 // remove ssl target socket
-                                if(RemoveSSLClient(target_sock, sslNum, ssl_p, ssl_log,ssl_return) != NULL){
-                                    free(ssl_log[sslNum-1]);
-                                    FD_CLR(ssl_return->sock, &master_set);
-                                    SSL_free(ssl_return->sslcon);
-                                    close(ssl_return->sock);
-                                    sslNum =  sslNum - 1;
-                                }
-                                
-
-                                rm_sock = RemoveClient(target_sock, ClientNum, my_client_p, my_client_log);
-                                if(rm_sock != NULL){
-                                    free(my_client_log[ClientNum-1]);
-                                    FD_CLR(rm_sock, &master_set);
-                                    close(rm_sock);
-                                    ClientNum =  ClientNum - 1;
-                                }
-                                
-
+                                sslNum = Remove_SSL_client(target_sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                                ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                 continue;
                             }
                             continue;
@@ -301,17 +294,13 @@ int main(int argc, char **argv)
                             n = read(sock, buf, 1);
                             //if the client close the connection/read call error
                             if (n <= 0)
-                            {
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
+                            {   
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                 continue;
                             }
 
-                            int target_sock = getCode(sock, ClientNum, my_client_p);
-                            int length = MForwardHeader(sock, target_sock, buf); 
+                            int length = MForwardHeader(sock, statuscode, buf); 
                             printf("Message Length = %d\n",length);
                             int needToSent = length;
                             while (needToSent > 0)
@@ -319,14 +308,11 @@ int main(int argc, char **argv)
                                 if (needToSent <= MsgBufSize)
                                 {   
                                     bzero(Msgbuf,MsgBufSize);
-                                    int msgBytes = ForwardMsg(sock, target_sock, needToSent, Msgbuf);
+                                    int msgBytes = ForwardMsg(sock, statuscode, needToSent, Msgbuf);
                                     if (msgBytes <= 0)
                                     {
-                                        int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                        free(my_client_log[ClientNum-1]);
-                                        FD_CLR(rm_sock, &master_set);
-                                        close(rm_sock);
-                                        ClientNum =  ClientNum - 1;
+                                        ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                        ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                         break;
                                     }
                                     needToSent -= msgBytes;
@@ -334,14 +320,11 @@ int main(int argc, char **argv)
                                 else
                                 {   
                                     bzero(Msgbuf,MsgBufSize);
-                                    int msgBytes = ForwardMsg(sock, target_sock, MsgBufSize, Msgbuf);
+                                    int msgBytes = ForwardMsg(sock, statuscode, MsgBufSize, Msgbuf);
                                     if (msgBytes <= 0)
                                     {
-                                        int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                        free(my_client_log[ClientNum-1]);
-                                        FD_CLR(rm_sock, &master_set);
-                                        close(rm_sock);
-                                        ClientNum =  ClientNum - 1;
+                                        ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                        ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                         break;
                                     }
                                     needToSent -= msgBytes;
@@ -350,135 +333,79 @@ int main(int argc, char **argv)
                             continue;
                         }
                     }
-                    else if(statuscode==-2 || statuscode==-1) //if this client is sending a new request
+                    else if(statuscode==-2) //if this client is sending a new request
                     {
                         bzero(buf,BUFSIZE);
                         n = read(sock, buf, BUFSIZE);
                         if (n <= 0)
                         {   
-                            if(type == 1 && FindSSLClient(sock, sslNum, ssl_p)>=0 && FindClient(sock,ClientNum,my_client_p)>=0){
-                                RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[sslNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                sslNum =  sslNum - 1;
-
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-                                continue;                   
+                            int ssl_tar = FindSSLClient(sock, sslNum, ssl_p);
+                            int client_tar = FindClient(sock,ClientNum,my_client_p);
+                            if(type == 1 && ssl_tar>=0 && client_tar>=0){
+                                int target_sock = getSSLCode(sock, sslNum, ssl_p);
+                                // remove ssl src socket
+                                sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                // remove ssl target socket
+                                if(target_sock>=0)sslNum = Remove_SSL_client(target_sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);             
                             }
-                            else if(FindClient(sock,ClientNum,my_client_p)>=0){ 
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set); 
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-                                continue;
+                            else if(client_tar>=0){ 
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
                             }
+                            continue;
                         }
                     }
                     else{ //if this client is not in the client list     
-                          FD_CLR(sock, &master_set); 
+                          FD_CLR(sock, &master_set);
                           close(sock);
                           continue;
                     }
 
                     //check if we get a full header.
-                    int stas_code = -2;
                     memcpy(backup, buf, n); //make a copy of buf we can so operation
                     backup[n] = '\0';
-                    if (strstr(backup, "\r\n\r\n") != NULL)
-                    {
-                        stas_code = -1;  //client has sent a request, should update the status code be -1
-                    }
-                    else
-                    {
-                        if(type == 1){
-                            int srctag = FindSSLClient(sock, sslNum, ssl_p);
-                            if(srctag==-1){
-                                FD_CLR(sock, &master_set); 
-                                close(sock);
-                            }                            
-                            else{
-                                SSL_write(ssl_log[srctag]->sslcon,"Bad Request!",strlen("Bad Request!"));
-                                RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[sslNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                sslNum =  sslNum - 1;
-
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set);
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-                                continue;
-                            }
-                            continue;                       
+                    if (strstr(backup, "\r\n\r\n") == NULL) //client sent a bad request
+                    {       
+                        int ssl_tar = FindSSLClient(sock, sslNum, ssl_p);
+                        int client_tar = FindClient(sock,ClientNum,my_client_p);
+                        if(type == 1 && ssl_tar>=0 && client_tar>=0){
+                            SSL_write(ssl_log[ssl_tar]->sslcon,"Bad Request!",strlen("Bad Request!"));
+                            int target_sock = getSSLCode(sock, sslNum, ssl_p);
+                            // remove ssl src socket
+                            sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                            ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                            // remove ssl target socket
+                            if(target_sock>=0)sslNum = Remove_SSL_client(target_sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);             
                         }
-                        else{
-                                write(sock,"Bad Request!",strlen("Bad Request!"));
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set); 
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-                                continue;
-                        }
-                    }
-                    
-                    //complete the request message in client struct and change stas_code to -1.
-                    UpdateClient(sock, stas_code, buf, n, ClientNum, my_client_p, my_client_log);
-
-                    printf("-------------------------------------------\n");
-                    bzero(message,500);
-                    strcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message);
-                    requestInfo = AnalyzeRequest(message);
-                    
-                    if (requestInfo.type == 1)
-                    {
-                        int serverSocket = GetConduct(&requestInfo, message, sock, &myCache);
-                        if(serverSocket==-1){write(sock,"Bad Request!",strlen("Bad Request!"));}
-                        //remove this client from list
-                        RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                        free(my_client_log[ClientNum-1]);
-                        ClientNum =  ClientNum - 1;
-                        FD_CLR(sock, &master_set);
-                        close(sock);
-
-                        if(FindClient(serverSocket, ClientNum, my_client_p)>=0){
-                            RemoveClient(serverSocket, ClientNum, my_client_p, my_client_log);
-                            free(my_client_log[ClientNum-1]);
-                            ClientNum =  ClientNum - 1;
-                            FD_CLR(serverSocket, &master_set);
+                        else if(client_tar>=0){ 
+                            write(sock,"Bad Request!",strlen("Bad Request!"));
+                            ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
                         }
                         continue;
                     }
-                    else if (requestInfo.type == 2)
+
+                    UpdateClient(sock, -2, buf, n, ClientNum, my_client_p, my_client_log);
+                    printf("-------------------------------------------\n");
+                    bzero(message,BUFSIZE);
+                    memcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message,BUFSIZE);
+                    requestInfo = AnalyzeRequest(message);
+                    
+                    if (requestInfo.type == 1) //HTTP Method
+                    {
+                        int serverSocket = GetConduct(&requestInfo, message, sock, &myCache);
+                        if(serverSocket==-1){write(sock,"Bad Request!",strlen("Bad Request!"));}
+                        ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                        continue;
+                    }
+                    else if (requestInfo.type == 2) //HTTPS Method
                     {
                         int ServerSocket = ConnectConduct(&requestInfo, sock);
 
                         // get errors when making connection to server
                         if(ServerSocket==-1){
-                            if(type==1){
-                                 FD_CLR(sock, &master_set);
-                                 close(sock);
-                                 continue;
-                            }
-                            else{
-                                //remove this client from list
-                                int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                free(my_client_log[ClientNum-1]);
-                                FD_CLR(rm_sock, &master_set); 
-                                close(rm_sock);
-                                ClientNum =  ClientNum - 1;
-                                continue;
-                            }
+                            write(sock,"Bad Request!",strlen("Bad Request!"));
+                            ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                            continue;
                         }
 
                         if(type==1){
@@ -501,8 +428,14 @@ int main(int argc, char **argv)
                                 ERR_print_errors_fp(stderr);
                             }
 
+                            if (sslNum >= sslCapacity){
+                                sslNum = Remove_SSL_when_full(sslNum, ssl_log, ssl_p, ssl_return, &master_set);
+                            }
+
                             sslNum = initSSLClient(ServerSocket, sslNum, serverssl, ssl_log);
                             sslNum = initSSLClient(sock, sslNum, clientssl, ssl_log);
+                            UpdateSSLClient(ServerSocket, sock, "", 0, sslNum, ssl_p, ssl_log);
+                            UpdateSSLClient(sock, ServerSocket, "", 0, sslNum, ssl_p, ssl_log);
                         }
 
                         FD_SET(ServerSocket, &master_set);
@@ -513,28 +446,9 @@ int main(int argc, char **argv)
 
                         if (ClientNum >= ClientCapacity)
                         {
-                            printf("Reach the maximum client capacity, evict some clients!!!!!!!\n");
-                            int rm_sock = RemoveWhenFull(ClientNum, my_client_p, my_client_log);
-                            free(my_client_log[ClientNum-1]);
-                            FD_CLR(rm_sock, &master_set);
-                            close(rm_sock);
-                            ClientNum =  ClientNum - 1;
+                            ClientNum = Remove_Client_List_when_full(ClientNum, my_client_log, my_client_p, &master_set);
                         }
-
-                        if (type==1 && sslNum >= sslCapacity){
-                            printf("Reach the maximum SSL connections capacity, evict some clients!!!!!!!\n");
-                            RemoveSSLClientWhenFull(sslNum, ssl_p, ssl_log, ssl_return);
-                            free(ssl_log[sslNum-1]);
-                            FD_CLR(ssl_return->sock, &master_set);
-                            SSL_free(ssl_return->sslcon);
-                            close(ssl_return->sock);
-                        }
-                        
-                        if(type == 1){
-                            UpdateSSLClient(ServerSocket, sock, "", 0, sslNum, ssl_p, ssl_log);
-                            UpdateSSLClient(sock, ServerSocket, "", 0, sslNum, ssl_p, ssl_log);
-                        }
-
+         
                         ClientNum = initClient(ServerSocket, ClientNum, my_client_log);
                         UpdateClient(ServerSocket, sock, "", 0, ClientNum, my_client_p, my_client_log);
                         UpdateClient(sock, ServerSocket, "", 0, ClientNum, my_client_p, my_client_log);
@@ -543,59 +457,23 @@ int main(int argc, char **argv)
                     }
                     else
                     {
-                        printf("Unknow type of HTTP method!\n");
-                        if(type == 1){
-                            int srctag = FindSSLClient(sock, ClientNum, ssl_p);
-                            if(srctag==-1){
-                                FD_CLR(sock, &master_set); 
-                                close(sock);
-                            }                            
-                            else{
-                                SSL_write(ssl_log[srctag]->sslcon,"Bad Request!",strlen("Bad Request!"));
-                                RemoveSSLClient(sock, ClientNum, ssl_p, ssl_log,ssl_return);
-                                free(ssl_log[ClientNum-1]);
-                                FD_CLR(ssl_return->sock, &master_set);
-                                SSL_free(ssl_return->sslcon);
-                                close(ssl_return->sock);
-                                ClientNum =  ClientNum - 1;
-                            }
-                            continue;                       
+                        printf("Unknown type of HTTP method!\n");
+                        int ssl_tar = FindSSLClient(sock, sslNum, ssl_p);
+                        int client_tar = FindClient(sock,ClientNum,my_client_p);
+                        if(type == 1 && ssl_tar>=0 && client_tar>=0){
+                            SSL_write(ssl_log[ssl_tar]->sslcon,"Bad Request!",strlen("Bad Request!"));
+                            int target_sock = getSSLCode(sock, sslNum, ssl_p);
+                            // remove ssl src socket
+                            sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                            ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                            // remove ssl target socket
+                            if(target_sock>=0)sslNum = Remove_SSL_client(target_sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);             
                         }
-                        else{
-                            if(type == 1){
-                                int srctag = FindSSLClient(sock, sslNum, ssl_p);
-                                if(srctag==-1){
-                                    FD_CLR(sock, &master_set); 
-                                    close(sock);
-                                }                            
-                                else{
-                                    SSL_write(ssl_log[srctag]->sslcon,"Bad Request!",strlen("Bad Request!"));
-                                    RemoveSSLClient(sock, sslNum, ssl_p, ssl_log,ssl_return);
-                                    free(ssl_log[sslNum-1]);
-                                    FD_CLR(ssl_return->sock, &master_set);
-                                    SSL_free(ssl_return->sslcon);
-                                    close(ssl_return->sock);
-                                    sslNum =  sslNum - 1;
-
-                                    int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                    free(my_client_log[ClientNum-1]);
-                                    FD_CLR(rm_sock, &master_set);
-                                    close(rm_sock);
-                                    ClientNum =  ClientNum - 1;
-                                    continue;
-                                }
-                                continue;                       
-                            }
-                            else{
-                                    write(sock,"Bad Request!",strlen("Bad Request!"));
-                                    int rm_sock = RemoveClient(sock, ClientNum, my_client_p, my_client_log);
-                                    free(my_client_log[ClientNum-1]);
-                                    FD_CLR(rm_sock, &master_set); 
-                                    close(rm_sock);
-                                    ClientNum =  ClientNum - 1;
-                                    continue;
-                            }
+                        else if(client_tar>=0){ 
+                            write(sock,"Bad Request!",strlen("Bad Request!"));
+                            ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
                         }
+                        continue;               
                     }
                 }
                 
