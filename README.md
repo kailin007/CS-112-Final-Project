@@ -11,7 +11,7 @@ sudo apt-get install libssl-dev
 ## Usage
 
 ```bash
-Make
+make
 # Flage = 1 : enable trusted proxy, Flage = 0 : disable trusted proxy.
 ./a.out port Flage
 ```

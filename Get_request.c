@@ -1,7 +1,8 @@
 #include "Get_request.h"
 
-#define BUFSIZE 500000
-#define DefaultMaxAge 3600
+#define BUFSIZE 5242880
+#define ReqBuf 1000
+#define DefaultMaxAge 600
 #define h_addr h_addr_list[0]
 
 /*
@@ -11,6 +12,18 @@ void error(char *msg)
 {
     perror(msg);
     exit(1);
+}
+
+void rewrite_header(struct RequestInfo *requestInfo, char* rewrite_req)
+{
+    memcpy(rewrite_req,"GET ",4);
+    memcpy(rewrite_req+4,requestInfo->url,strlen(requestInfo->url));
+    memcpy(rewrite_req+4+strlen(requestInfo->url)," HTTP/1.1\r\n",strlen(" HTTP/1.1\r\n"));
+    memcpy(rewrite_req+4+strlen(requestInfo->url)+strlen(" HTTP/1.1\r\n"),"Host: ",6);
+    memcpy(rewrite_req+4+strlen(requestInfo->url)+strlen(" HTTP/1.1\r\n")+6,requestInfo->host,strlen(requestInfo->host));
+    memcpy(rewrite_req+4+strlen(requestInfo->url)+strlen(" HTTP/1.1\r\n")+6+strlen(requestInfo->host),":",1);
+    memcpy(rewrite_req+4+strlen(requestInfo->url)+strlen(" HTTP/1.1\r\n")+6+strlen(requestInfo->host)+1,requestInfo->port,strlen(requestInfo->port));
+    memcpy(rewrite_req+4+strlen(requestInfo->url)+strlen(" HTTP/1.1\r\n")+6+strlen(requestInfo->host)+1+strlen(requestInfo->port),"\r\n\r\n",strlen("\r\n\r\n"));
 }
 
 int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct MyCache* myCache)
@@ -33,22 +46,23 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     char ageLine[200];
     int j;
     int *responseLength;
+    char* rewrite_req;
+    char key[ReqBuf];
 
     buf = (char *)malloc(BUFSIZE);
     temp = (char *)malloc(BUFSIZE);
     responseInCache = (char *)malloc(BUFSIZE);
     responseLength = (int *)malloc(sizeof(int));
-    char key[200];
+    rewrite_req = (char *)malloc(ReqBuf);
 
     bzero(responseInCache, BUFSIZE);
     bzero(temp, BUFSIZE);
     bzero(responseLength,sizeof(int));
-    bzero(key,200);
+    bzero(key,ReqBuf);
 
     MakeKey(requestInfo->host, requestInfo->port, requestInfo->url, key);
-    printf("key forage succ\n");
-    getFromMyCache(key, responseInCache, responseLength, myCache);
-    if (strcmp(responseInCache, "NA") != 0)
+    int cache_value = getFromMyCache(key, responseInCache, responseLength, myCache);
+    if (cache_value == 0)
     {
         age = getAge(key, *myCache);
         sprintf(ageLine, "Age: %d\n", age);
@@ -100,8 +114,12 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
             return -1; 
         }
         
+        bzero(rewrite_req,ReqBuf);
+        rewrite_header(requestInfo, rewrite_req);
+        //printf("rewritten request: %s\n",rewrite_req);
+        
         // forward to server
-        n = write(sockfd, request, strlen(request));
+        n = write(sockfd, rewrite_req, strlen(rewrite_req));
         if (n <= 0){
             printf("error writing to server\n");
             close(sockfd);
@@ -120,8 +138,7 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
         // get cache info from response
         responseInfo = AnalyzeResponse(buf);
         j = n;
-
-        while (j < responseInfo.contentLength)
+        while (j < responseInfo.contentLength+responseInfo.headerLength)
         {
             n = read(sockfd, buf + j, BUFSIZE-j);
             if (n <= 0)
@@ -165,9 +182,11 @@ int GetConduct(struct RequestInfo *requestInfo, char *request, int sock, struct 
     free(temp);
     free(responseInCache);
     free(responseLength);
+    free(rewrite_req);
     buf = NULL;
     temp = NULL;
     responseInCache = NULL;
     responseLength = NULL;
+    rewrite_req = NULL;
     return sockfd; // successfully processed a get request
 }

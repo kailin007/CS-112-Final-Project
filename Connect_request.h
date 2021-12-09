@@ -20,8 +20,8 @@
 #include "my_cache.h"
 
 #define CacheMaxAge 600
-#define CacheValueSize 1048576
-#define MaxUrlLength 10000
+#define CacheValueSize 5242880
+#define MaxUrlLength 1000
 
 int ConnectConduct(struct RequestInfo *requestInfo, int sock); // establish TCP connect to server according to CONNECT request
 int ForwardMsg(int srcSock, int dstSock, int length, char* buf); // forward messages from srcSock to dstSock; return the length of message.

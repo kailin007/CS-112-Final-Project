@@ -111,11 +111,8 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
 {
     int n;
     int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
-    if (srctag == -1)
-        return -1;
     int dsttag = FindSSLClient(dstSock, ClientNum, myclient_p);
-    if (dsttag == -1)
-        return -1;
+
     SSL *srcSSL = myclient_log[srctag]->sslcon;
     SSL *dstSSL = myclient_log[dsttag]->sslcon;
 
@@ -129,10 +126,11 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     n = SSL_read(srcSSL, buf, bufSize);
     if (n <= 0)
     {
-        printf("CONNECT: error reading from socket %d\n", srcSock);
+        printf("(SSL) CONNECT: error reading from socket %d\n", srcSock);
     }
     else{
         requestInfo = AnalyzeRequest(buf);
+        printf("requestInfo.type: %d\n",requestInfo.type);
         if(requestInfo.type == 1){
             // if the msg is GET (from client)
             bzero(host_url, MaxUrlLength);
@@ -176,9 +174,9 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
 
     if(isCached){
         // if request has been cached, respond from cache
-        printf("start sending from cache\n");
+        printf("start sending from cache!!!!!!!!!!!!!!!\n");
         int bytesSent = 0;
-        char temp[500];
+        char temp[MaxUrlLength];
         while(bytesSent < valueLength){
             // send cached content to client (500 bytes each time)
             if(valueLength - bytesSent >= 500){
@@ -187,7 +185,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
             else{
                 n = valueLength - bytesSent;
             }
-            bzero(temp, 500);
+            bzero(temp, MaxUrlLength);
             memcpy(temp, cachedMsg + bytesSent, n);
             bytesSent += n;
             n = SSL_write(srcSSL, temp, n);
@@ -201,7 +199,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
         }
 
         free(cachedMsg);
-        printf("sent %d bytes from cache\n", valueLength);
+        printf("sent %d bytes from cache!!!!!!!!!!!!\n", valueLength);
         return 0;
     }
     else{

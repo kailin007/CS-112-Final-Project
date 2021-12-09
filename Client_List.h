@@ -6,12 +6,13 @@
 #include <string.h>
 #include <time.h>
 
+#define BufSize 1000
 
 struct MY_CLIENT
 {
     int sock;
-    char message[500];
-    int status;         //-3 = error, cannot find client in the clientlist; -2 = has not sent request yet; -1 = has sent at least one request; >=0 = this client send a connect method
+    char message[BufSize];
+    int status;         //-3 = error, cannot find client in the clientlist; -2 = has not sent request yet; >=0 = this client send a connect method
     int currentLength;
 };
 //get the status code of the client using this socket
