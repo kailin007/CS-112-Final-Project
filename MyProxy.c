@@ -27,8 +27,8 @@
 #include "SSL_Client.h"
 
 #define CacheSize 100
-#define CacheKeySize 1000
-#define BUFSIZE 1000  // request buffer/header front 5 bytes
+#define CacheKeySize 3000
+#define BUFSIZE 3000  // request buffer/header front 5 bytes
 #define MESSIZE 5242880 // cache object size = 5 MB
 #define MsgBufSize 50000  // forward Msg size 
 #define DefaultMaxAge 600
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
     struct hostent *hostp;         /* client host info */
     char buf[BUFSIZE];
     char Msgbuf[MsgBufSize];
-    char message[500];
+    char message[BUFSIZE];
     char *hostaddrp;               /* dotted decimal host addr string */
     int optval;                    /* flag value for setsockopt */
     int n;                         /* message byte size */
@@ -448,7 +448,6 @@ int main(int argc, char **argv)
                         {
                             ClientNum = Remove_Client_List_when_full(ClientNum, my_client_log, my_client_p, &master_set);
                         }
-         
                         ClientNum = initClient(ServerSocket, ClientNum, my_client_log);
                         UpdateClient(ServerSocket, sock, "", 0, ClientNum, my_client_p, my_client_log);
                         UpdateClient(sock, ServerSocket, "", 0, ClientNum, my_client_p, my_client_log);

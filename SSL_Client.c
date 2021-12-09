@@ -1,7 +1,7 @@
 #include "SSL_Client.h"
 
 int getSSLCode(int socket, int Client_Num, struct SSL_Client ***myclient_p){
-    int target = FindClient(socket, Client_Num, myclient_p);
+    int target = FindSSLClient(socket, Client_Num, myclient_p);
     if(target==-1){
         //printf("Can not find ssl client you seek for in the ssl list!\n");
         return -3;
@@ -11,7 +11,7 @@ int getSSLCode(int socket, int Client_Num, struct SSL_Client ***myclient_p){
 }
 
 int getSSLMsg(char* msg, int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log){
-    int target = FindClient(socket, Client_Num, myclient_p);
+    int target = FindSSLClient(socket, Client_Num, myclient_p);
     if(target==-1){
         //printf("Can not find ssl client you seek for in the ssl list!\n");
         return -3;
@@ -35,13 +35,13 @@ int initSSLClient(int socket, int Client_Num, SSL *sslcon, struct SSL_Client **m
 }
 
 int UpdateSSLClient(int socket, int statusCode, char *header, int length, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log){
-    int target = FindClient(socket, Client_Num, myclient_p);
+    int target = FindSSLClient(socket, Client_Num, myclient_p);
     if (target == -1)
     {
         //printf("Can not find socket you want to update in the list!\n");
         return -3;
     }
-    bzero(myclient_log[target] -> message, 10000);
+    bzero(myclient_log[target] -> message, 3000);
     memcpy(myclient_log[target] -> message, header, length); 
     // printf("before memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);\n");
     //memcpy(myclient_log[target] -> message + (*myclient_p)[target] -> currentLength, header, length);  
@@ -72,7 +72,7 @@ int FindSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p)
 }
 
 SSL_Return* RemoveSSLClient(int socket, int Client_Num, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, SSL_Return* ssl_return){
-    int target = FindClient(socket, Client_Num, myclient_p);
+    int target = FindSSLClient(socket, Client_Num, myclient_p);
     if (target == -1)
     {
         //printf("Can not find ssl client you seek for in the ssl list!\n");

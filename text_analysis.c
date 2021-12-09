@@ -119,6 +119,7 @@ struct RequestInfo AnalyzeRequest(char *text)
             memcpy(requestInfo.host, p1 + 1, p3 - p1 - 1);
         }
         requestInfo.type = 2;
+        printf("requestInfo.type: %d\n",requestInfo.type);
         printf("requestInfo.host: %s, requestInfo.port: %s\n", requestInfo.host, requestInfo.port);
         return requestInfo;
     }

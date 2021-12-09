@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MaxSingleLineLength 10000
+#define MaxSingleLineLength 3000
 
 struct RequestInfo
 {
