@@ -30,10 +30,10 @@
 #define CacheKeySize 3000
 #define BUFSIZE 3000  // request buffer/header front 5 bytes
 #define MESSIZE 5242880 // cache object size = 5 MB
-#define MsgBufSize 50000  // forward Msg size 
+#define MsgBufSize 30000  // forward Msg size 
 #define DefaultMaxAge 600
-#define ClientCapacity 1000
-#define sslCapacity 1000
+#define ClientCapacity 500
+#define sslCapacity 500
 
 void LoadCertificates(SSL_CTX* ctx, char* KeyFile, char* CertFile)
 {

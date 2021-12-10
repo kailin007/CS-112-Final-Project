@@ -47,6 +47,8 @@ struct RequestInfo AnalyzeRequest(char *text)
     buffer = strstr(text, "GET");
     if (buffer != NULL)
     {
+        if(strstr(text, "Host:")==NULL){return requestInfo;} //newly added
+        
         p1 = strchr(buffer, ' ');
         p2 = strchr(p1 + 1, ' ');
         // error case
@@ -64,7 +66,7 @@ struct RequestInfo AnalyzeRequest(char *text)
         // error case
         if (buffer == NULL)
         {
-            //getHostFromUrl(requestInfo.url, requestInfo.host, requestInfo.port);
+            //getHostFromUrl(requestInfo.url, requestInfo.host, requestInfo.port); //has some bugs
             return requestInfo;
         }
         else
@@ -98,7 +100,8 @@ struct RequestInfo AnalyzeRequest(char *text)
     buffer = strstr(text, "CONNECT");
     if (buffer != NULL)
     {
-        if(strstr(text, "Host:")==NULL){return requestInfo;}
+        if(strstr(text, "Host:")==NULL){return requestInfo;} //newly added
+
         p1 = strchr(buffer, ' ');
         p2 = strchr(p1 + 1, ':');
         p3 = strchr(p1 + 1, ' ');

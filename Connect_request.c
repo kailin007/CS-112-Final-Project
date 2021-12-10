@@ -130,7 +130,6 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     }
     else{
         requestInfo = AnalyzeRequest(buf);
-        printf("inneere requestInfo.host: %s\n",requestInfo.host);
         if(requestInfo.type == 1){
             // if the msg is GET (from client)
             bzero(host_url, MaxUrlLength);
@@ -174,7 +173,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
 
     if(isCached){
         // if request has been cached, respond from cache
-        printf("start sending from cache!!!!!!!!!!!!!!!\n");
+        printf("Start sending from cache!!!!!!!!!!!!!!!\n");
         int bytesSent = 0;
         char temp[MaxUrlLength];
         while(bytesSent < valueLength){
@@ -192,14 +191,14 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
             // printf("sent %d bytes to socket %d\n", n, srcSock);
             if(n < 0){
                 // TCP error
-                printf("CONNECT: error writing to socket %d\n", srcSock);
+                printf("(SSL) CONNECT: error writing to socket %d\n", srcSock);
                 free(cachedMsg);
                 return 0;
             }
         }
 
         free(cachedMsg);
-        printf("sent %d bytes from cache!!!!!!!!!!!!\n", valueLength);
+        printf("Sent %d bytes from cache!!!!!!!!!!!!\n", valueLength);
         return 0;
     }
     else{
@@ -208,7 +207,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
         n = SSL_write(dstSSL, buf, n);
         if (n <= 0)
         {
-            printf("CONNECT: error writing to socket %d\n", dstSock);
+            printf("(SSL) CONNECT: error writing to socket %d\n", dstSock);
         }
         // if received the end of the response, return 0 and close both sockets at main
         if(requestInfo.type != 1 && buf[n-5]=='0' && buf[n-4]=='\r' && buf[n-3]=='\n' && buf[n-2]=='\r' && buf[n-1]=='\n'){
