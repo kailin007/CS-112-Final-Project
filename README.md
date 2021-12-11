@@ -19,8 +19,8 @@ Enter "about:config" into the address bar, proceed and search:
 Enter "about:preferences" into the address bar:    
     * In the "General" setting, find the "Network Settings" and proceed to set up proxy  
     * In the "Privacy & Security" setting, find "Cookies and Site Data" block and click on "Clear Data" tab.  
-        Tick the checkbox "Delete cookies and site data when Firefox is closed"  
-    * In the "History" setting, select "Never remember history" option
+      Tick the checkbox "Delete cookies and site data when Firefox is closed"  
+    * In the "History" setting, choose "Never remember history" option
 ```
 
 ## Usage
