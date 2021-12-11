@@ -130,7 +130,6 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     }
     else{
         requestInfo = AnalyzeRequest(buf);
-        printf("inneere requestInfo.host: %s\n",requestInfo.host);
         if(requestInfo.type == 1){
             // if the msg is GET (from client)
             bzero(host_url, MaxUrlLength);
@@ -173,14 +172,16 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     }
 
     if(isCached){
+        /* v1: kinda slow
         // if request has been cached, respond from cache
-        printf("start sending from cache!!!!!!!!!!!!!!!\n");
+        printf("\nStart sending from cache!!!!!!!!!!!!!!!\n");
         int bytesSent = 0;
-        char temp[MaxUrlLength];
+        char* temp = (char*)malloc(500000);
+        bzero(temp,500000);
         while(bytesSent < valueLength){
-            // send cached content to client (500 bytes each time)
-            if(valueLength - bytesSent >= 500){
-                n = 500;
+            // send cached content to client (500000 bytes each time)
+            if(valueLength - bytesSent >= 500000){
+                n = 500000;
             }
             else{
                 n = valueLength - bytesSent;
@@ -192,14 +193,27 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
             // printf("sent %d bytes to socket %d\n", n, srcSock);
             if(n < 0){
                 // TCP error
-                printf("CONNECT: error writing to socket %d\n", srcSock);
+                printf("(SSL) CONNECT: error writing to socket %d\n", srcSock);
                 free(cachedMsg);
                 return 0;
             }
         }
-
+        printf("Sent %d bytes from cache!!!!!!!!!!!!\n\n", valueLength);
         free(cachedMsg);
-        printf("sent %d bytes from cache!!!!!!!!!!!!\n", valueLength);
+        free(temp);
+        return 0;
+        */
+        printf("\nStart sending from cache!!!!!!!!!!!!!!!\n");
+        char* temp = (char*)malloc(CacheValueSize);
+        bzero(temp,CacheValueSize);
+        memcpy(temp, cachedMsg, valueLength);
+        n = SSL_write(srcSSL, temp, valueLength);
+        free(cachedMsg);
+        free(temp);
+        if(n <= 0){
+            printf("(SSL) CONNECT: error writing to socket %d\n", srcSock);
+        }
+        printf("Sent %d bytes from cache!!!!!!!!!!!!\n\n", n);
         return 0;
     }
     else{
@@ -208,7 +222,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
         n = SSL_write(dstSSL, buf, n);
         if (n <= 0)
         {
-            printf("CONNECT: error writing to socket %d\n", dstSock);
+            printf("(SSL) CONNECT: error writing to socket %d\n", dstSock);
         }
         // if received the end of the response, return 0 and close both sockets at main
         if(requestInfo.type != 1 && buf[n-5]=='0' && buf[n-4]=='\r' && buf[n-3]=='\n' && buf[n-2]=='\r' && buf[n-1]=='\n'){

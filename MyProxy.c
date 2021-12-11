@@ -30,10 +30,11 @@
 #define CacheKeySize 3000
 #define BUFSIZE 3000  // request buffer/header front 5 bytes
 #define MESSIZE 5242880 // cache object size = 5 MB
-#define MsgBufSize 50000  // forward Msg size 
+#define MsgBufSize 30000  // forward Msg size 
 #define DefaultMaxAge 600
-#define ClientCapacity 1000
-#define sslCapacity 1000
+#define ClientCapacity 500
+#define sslCapacity 500
+#define blocklistSize 1000
 
 void LoadCertificates(SSL_CTX* ctx, char* KeyFile, char* CertFile)
 {
@@ -120,16 +121,30 @@ int Remove_client(int sock, int ClientNum, struct MY_CLIENT **my_client_log, str
         return ClientNum;
 }
 
+int check_hostname(char* blocklists, char* req_host){
+   char* temp = (char*)malloc(blocklistSize);
+   bzero(temp,blocklistSize);
+   memcpy(temp,blocklists,strlen(blocklists));
+   char * token = strtok(temp, ",");
+   while( token != NULL ) {
+      if(strstr(req_host,token)!=NULL){free(temp); return 1;}
+      token = strtok(NULL, ",");
+   }
+   free(temp);
+   return 0;
+}
+
 int main(int argc, char **argv)
 {
     /* check command line args */
-    if (argc != 3)
+    if (argc != 4)
     {
-        fprintf(stderr, "usage: %s <port> <1(enable trusted proxy)/0(disable trusted proxy)>\n", argv[0]);
+        fprintf(stderr, "usage: %s <port> <1(enable trusted proxy)/0(disable trusted proxy)> <blocklists of hostnames(separated by comma;\"NA\" for not blocking)>\n", argv[0]);
         exit(1);
     }
     int portno = atoi(argv[1]);  /* port to listen on */
     int type = atoi(argv[2]); //1(enable trusted proxy),0(disable trusted proxy)
+    char* blocklists = argv[3];
 
     int master_socket;             /* listening socket */
     int client_socket;             /* connection socket */
@@ -389,6 +404,28 @@ int main(int argc, char **argv)
                     bzero(message,BUFSIZE);
                     memcpy(message, (*my_client_p)[FindClient(sock, ClientNum, my_client_p)]->message,BUFSIZE);
                     requestInfo = AnalyzeRequest(message);
+
+                    if(strcmp(blocklists,"NA")!=0){ //if there is a blocklist, check if request contains the hostname that should be blocked
+                        int re = check_hostname(blocklists, requestInfo.host);
+                        if(re==1){
+                            int ssl_tar = FindSSLClient(sock, sslNum, ssl_p);
+                            int client_tar = FindClient(sock,ClientNum,my_client_p);
+                            if(ssl_tar>=0 && client_tar>=0){
+                                SSL_write(ssl_log[ssl_tar]->sslcon,"\n\n\r\rThis Request has been blocked!\n\n",strlen("\n\n\r\rThis Request has been blocked!\n\n"));
+                                int target_sock = getSSLCode(sock, sslNum, ssl_p);
+                                // remove ssl src socket
+                                sslNum = Remove_SSL_client(sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                                // remove ssl target socket
+                                if(target_sock>=0)sslNum = Remove_SSL_client(target_sock, sslNum, &master_set, ssl_log, ssl_p, ssl_return);             
+                            }
+                            else if(client_tar>=0){ 
+                                write(sock,"\n\n\r\rThis Request has been blocked!\n\n",strlen("\n\n\r\rThis Request has been blocked!\n\n"));
+                                ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
+                            }
+                            continue;
+                        }
+                    }
                     
                     if (requestInfo.type == 1) //HTTP Method
                     {
