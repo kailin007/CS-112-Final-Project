@@ -11,7 +11,7 @@ sudo apt-get install libssl-dev
 
 ## Configuration of browser
 Before using proxy, set up the browser first. Take Firefox as an example:
-
+```bash
 Enter "about:config" into the address bar, proceed and search:    
     * "security.enterprise_roots.enabled" -change it to be true  
     * "network.stricttransportsecurity.preloadlist" -change it to be false  
@@ -21,6 +21,7 @@ Enter "about:preferences" into the address bar:
     * In the "Privacy & Security" setting, find "Cookies and Site Data" block and click on "Clear Data" tab.  
         Tick the checkbox "Delete cookies and site data when Firefox is closed"  
     * In the "History" setting, select "Never remember history" option
+```
 
 ## Usage
 ```bash
