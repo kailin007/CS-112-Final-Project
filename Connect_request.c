@@ -123,7 +123,9 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
     int isCached = 0;
 
     bzero(buf, bufSize);
+    printf("bufsize = %d\n",bufSize);
     n = SSL_read(srcSSL, buf, bufSize);
+    printf("read from client = %d\n",n);
     if (n <= 0)
     {
         printf("(SSL) CONNECT: error reading from socket %d\n", srcSock);

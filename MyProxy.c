@@ -137,14 +137,15 @@ int check_hostname(char* blocklists, char* req_host){
 int main(int argc, char **argv)
 {
     /* check command line args */
-    if (argc != 4)
+    if (argc != 5)
     {
-        fprintf(stderr, "usage: %s <port> <1(enable trusted proxy)/0(disable trusted proxy)> <blocklists of hostnames(separated by comma;\"NA\" for not blocking)>\n", argv[0]);
+        fprintf(stderr, "usage: %s <port> <1(enable trusted proxy)/0(disable trusted proxy)> <blocklists of hostnames(separated by comma;\"NA\" for not blocking)> <BandWidth limit>\n", argv[0]);
         exit(1);
     }
     int portno = atoi(argv[1]);  /* port to listen on */
     int type = atoi(argv[2]); //1(enable trusted proxy),0(disable trusted proxy)
     char* blocklists = argv[3];
+    int BandWidthPerSec = atoi(argv[4]);
 
     int master_socket;             /* listening socket */
     int client_socket;             /* connection socket */
@@ -158,6 +159,7 @@ int main(int argc, char **argv)
     char *hostaddrp;               /* dotted decimal host addr string */
     int optval;                    /* flag value for setsockopt */
     int n;                         /* message byte size */
+    time_t now;                    /* current time */
 
     SSL_CTX *ServerCTX;
     SSL_CTX *ClientCTX;
@@ -263,7 +265,7 @@ int main(int argc, char **argv)
                 ClientNum = Remove_Client_List_when_full(ClientNum, my_client_log, my_client_p, &master_set);
             }
 
-            ClientNum = initClient(client_socket, ClientNum, my_client_log);
+            ClientNum = initClient(client_socket, ClientNum, my_client_log, BandWidthPerSec);
         }
         else
         {
@@ -290,7 +292,30 @@ int main(int argc, char **argv)
                             }
 
                             bzero(Msgbuf,MsgBufSize);
-                            int n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache); 
+                            int index = FindClient(sock,ClientNum,my_client_p);
+                            //update band width limit
+                            if (difftime(time(&now), (*my_client_p)[index]->time) >= 1)
+                            {
+                                time(&(my_client_log[index]->time));
+                                my_client_log[index]->bandWidthLeft = BandWidthPerSec;
+                            }
+                            int remainBandWidth = (*my_client_p)[index]->bandWidthLeft;
+
+                            //if there are reach the limit, wait for next second
+                            if (remainBandWidth == 0){
+                                continue;
+                            }
+                            
+                            if (remainBandWidth > MsgBufSize)
+                            {
+                                n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
+                            }else{
+                                n = ForwardSSLMsg(sock, target_sock, remainBandWidth, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
+                                printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
+                            }
+
+                            my_client_log[index]->bandWidthLeft = remainBandWidth - n;
+
                             printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
                             
                             if(n<=0){
@@ -485,7 +510,7 @@ int main(int argc, char **argv)
                         {
                             ClientNum = Remove_Client_List_when_full(ClientNum, my_client_log, my_client_p, &master_set);
                         }
-                        ClientNum = initClient(ServerSocket, ClientNum, my_client_log);
+                        ClientNum = initClient(ServerSocket, ClientNum, my_client_log, BandWidthPerSec);
                         UpdateClient(ServerSocket, sock, "", 0, ClientNum, my_client_p, my_client_log);
                         UpdateClient(sock, ServerSocket, "", 0, ClientNum, my_client_p, my_client_log);
                 

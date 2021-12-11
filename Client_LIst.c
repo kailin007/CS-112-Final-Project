@@ -1,11 +1,15 @@
 #include "Client_List.h"
 
 
-int initClient(int socket, int Client_Num, struct MY_CLIENT **myclient_log){
+int initClient(int socket, int Client_Num, struct MY_CLIENT **myclient_log, int bandWid){
     myclient_log[Client_Num] = malloc(sizeof(struct MY_CLIENT));
     myclient_log[Client_Num] -> sock = socket;
     myclient_log[Client_Num] -> currentLength = 0;
     myclient_log[Client_Num] -> status = -2;
+    myclient_log[Client_Num] -> bandWidth = bandWid;
+    myclient_log[Client_Num] -> bandWidthLeft = bandWid;
+    printf("entry band left: %d\n", bandWid);
+    time(&(myclient_log[Client_Num] -> time));
     Client_Num += 1;
     return Client_Num;
 }
@@ -66,6 +70,8 @@ int RemoveClient(int socket, int Client_Num, struct MY_CLIENT ***myclient_p, str
         myclient_log[i] -> sock = (*myclient_p)[i+1] -> sock;
         strcpy(myclient_log[i] -> message, (*myclient_p)[i+1] -> message);
         myclient_log[i] -> status = (*myclient_p)[i+1] -> status;
+        myclient_log[i] -> bandWidthLeft = (*myclient_p)[i+1] -> bandWidthLeft;
+        myclient_log[i] -> time = (*myclient_p)[i+1] -> time;
     }
     return socket;
 }                
