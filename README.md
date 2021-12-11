@@ -27,7 +27,7 @@ Enter "about:preferences" into the address bar:
 ```bash
 make
 # Flage = 1 : enable trusted proxy, Flage = 0 : disable trusted proxy.
-# Blocklist : list of hostnames that proxy wants to block, separated by comma. e.g: www.tufts.com,www.youtube.com
+# Blocklist : list of hostnames that proxy wants to block, separated by comma ("NA" for not blocking). e.g: www.tufts.com,www.youtube.com / NA
 ./a.out port Flage Blocklist
 ```
 
