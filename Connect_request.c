@@ -106,8 +106,69 @@ int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
     return n;
 }
 
+// make a tcp connection to a specific host and port return socket
+int makeTCPConnection(char* host, int port){
+    int sockfd;
+    struct sockaddr_in serveraddr;
+    struct hostent *server;
+
+    /* socket: create the socket */
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) 
+        return -1;
+
+    /* gethostbyname: get the server's DNS entry */
+    server = gethostbyname(host);
+    if (server == NULL) {
+        fprintf(stderr,"ERROR, no such host as %s\n", host);
+        return -1;
+    }
+
+    /* build the server's Internet address */
+    bzero((char *) &serveraddr, sizeof(serveraddr));
+    serveraddr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, 
+	  (char *)&serveraddr.sin_addr.s_addr, server->h_length);
+    serveraddr.sin_port = htons(port);
+
+    /* connect: create a connection with the server */
+    if (connect(sockfd, &serveraddr, sizeof(serveraddr)) < 0) 
+        return -1;
+
+    return sockfd;
+}
+
+int makeCacheRequestHeader(struct RequestInfo *requestInfo, char* rewrite_req)
+{
+    int currentLen = 0;
+
+    memcpy(rewrite_req, "CACHEREQ ", strlen("CACHEREQ "));
+    currentLen += strlen("CACHEREQ ");
+
+    memcpy(rewrite_req + currentLen, requestInfo->url, strlen(requestInfo->url));
+    currentLen += strlen(requestInfo->url);
+
+    memcpy(rewrite_req + currentLen, " \r\nHost: ", strlen(" \r\nHost: "));
+    currentLen += strlen(" \r\nHost: ");
+
+    memcpy(rewrite_req + currentLen, requestInfo->host, strlen(requestInfo->host));
+    currentLen += strlen(requestInfo->host);
+
+    memcpy(rewrite_req + currentLen, ":", strlen(":"));
+    currentLen += strlen(":");
+
+    memcpy(rewrite_req + currentLen, requestInfo->port, strlen(requestInfo->port));
+    currentLen += strlen(requestInfo->port);
+
+    memcpy(rewrite_req + currentLen, "\r\n\r\n", strlen("\r\n\r\n"));
+    currentLen += strlen("\r\n\r\n");
+
+    return currentLen;
+}
+
+
 // forward messages from srcSock to dstSock; return the length of message.
-int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf, struct MyCache* myCache)
+int ForwardSSLMsg(int srcSock, int dstSock, struct ProxyList* proxyList, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char *buf, struct MyCache* myCache)
 {
     int n;
     int srctag = FindSSLClient(srcSock, ClientNum, myclient_p);
@@ -144,6 +205,40 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
             if(i == 0){
                 // if the request has been cached, respond from cache
                 isCached = 1;
+            }
+            else{
+                // request cache from other proxy
+                char buf[MaxUrlLength];
+                bzero(buf, MaxUrlLength);
+                int len = makeCacheRequestHeader(&requestInfo, buf);
+                int y = 0;
+                
+                int k, n, socket;
+                for(k = 0; k < proxyList->coCacheNum; k++){
+                    socket = proxyList->socket[k];
+                    if(socket > 0){
+                        // available proxy
+                        n = write(socket, buf, len);
+                        if(n <= 0){
+                            continue;
+                        }
+
+                        n = read(socket, buf, MaxUrlLength);
+                        if(n <= 0){
+                            break;
+                        }
+                        if(buf[0] = 'N' && buf[1] == 'A'){
+                            // if the proxy doesn't have cache
+                            close(socket);
+                            proxyList->socket[k] = -1;
+                            break;
+                        }
+
+                        printf("get cached content from other proxy (socket: %d)\n", socket);
+                        // return 0;
+                    }
+                }
+                printf("didn't find cached content on other proxies\n");
             }
         }
         else{
@@ -205,7 +300,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
         free(temp);
         return 0;
         */
-        printf("\nStart sending from cache!!!!!!!!!!!!!!!\n");
+        printf("\nStart sending from cache\n");
         char* temp = (char*)malloc(CacheValueSize);
         bzero(temp,CacheValueSize);
         memcpy(temp, cachedMsg, valueLength);
@@ -215,7 +310,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct S
         if(n <= 0){
             printf("(SSL) CONNECT: error writing to socket %d\n", srcSock);
         }
-        printf("Sent %d bytes from cache!!!!!!!!!!!!\n\n", n);
+        printf("Sent %d bytes from cache\n\n", n);
         return 0;
     }
     else{

@@ -179,6 +179,14 @@ int main(int argc, char **argv)
     struct RequestInfo requestInfo; /* store break down request info */
     myCache = initializeMyCache(CacheSize, CacheKeySize, MESSIZE);
 
+    // get proxy list
+    struct ProxyList proxyList = getProxyList();
+    for (n = 0; n < proxyList.coCacheNum; n++){
+        // connect to other proxies
+        proxyList.socket[n] = makeTCPConnection(proxyList.host[n], atoi(proxyList.port[n]));
+    }
+    
+
     if(type == 1){
         SSL_library_init();
         OpenSSL_add_all_algorithms();     /* Load cryptos, et.al. */
@@ -308,9 +316,9 @@ int main(int argc, char **argv)
                             
                             if (remainBandWidth > MsgBufSize)
                             {
-                                n = ForwardSSLMsg(sock, target_sock, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
+                                n = ForwardSSLMsg(sock, target_sock, &proxyList, MsgBufSize, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
                             }else{
-                                n = ForwardSSLMsg(sock, target_sock, remainBandWidth, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
+                                n = ForwardSSLMsg(sock, target_sock, &proxyList, remainBandWidth, sslNum, ssl_p, ssl_log, Msgbuf, &myCache);
                                 printf("(SSL) Proxy read %d bytes from socket %d and write them to socket %d\n", n, sock, target_sock);
                             }
 
@@ -515,6 +523,11 @@ int main(int argc, char **argv)
                         UpdateClient(sock, ServerSocket, "", 0, ClientNum, my_client_p, my_client_log);
                 
                         continue;
+                    }
+                    else if (requestInfo.type == 3) //CACHEREQ Method
+                    {
+                        CachereqConduct(&requestInfo, sock, &myCache);
+                        
                     }
                     else
                     {
