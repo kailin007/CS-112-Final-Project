@@ -256,24 +256,26 @@ struct ProxyList initProxyList(){
 struct ProxyList getProxyList(){
     struct ProxyList proxyList = initProxyList();
     FILE *f = fopen("cache_server.txt", "r");
-    char buf[100];
-    char *p1, *p2, *p3;
-    while(fgets(buf, sizeof(buf), f) != NULL){
-        p1 = strchr(buf, '[');
-        p2 = strchr(buf, ':');
-        p3 = strchr(buf, ']');
-        if(p1 == NULL && p2 == NULL && p3 == NULL){
-            break;
+    if(f){  // if file exists
+        char buf[100];
+        char *p1, *p2, *p3;
+        while(fgets(buf, sizeof(buf), f) != NULL){
+            p1 = strchr(buf, '[');
+            p2 = strchr(buf, ':');
+            p3 = strchr(buf, ']');
+            if(p1 == NULL && p2 == NULL && p3 == NULL){
+                break;
+            }
+            memcpy(proxyList.host[proxyList.coCacheNum], p1 + 1, p2 - p1 - 1);
+            proxyList.host[proxyList.coCacheNum][p2 - p1 - 1] = '\0';
+
+            memcpy(proxyList.port[proxyList.coCacheNum], p2 + 1, p3 - p2 - 1);
+            proxyList.port[proxyList.coCacheNum][p3 - p2 - 1] = '\0';
+
+            proxyList.coCacheNum++;
+
         }
-        memcpy(proxyList.host[proxyList.coCacheNum], p1 + 1, p2 - p1 - 1);
-        proxyList.host[proxyList.coCacheNum][p2 - p1 - 1] = '\0';
-
-        memcpy(proxyList.port[proxyList.coCacheNum], p2 + 1, p3 - p2 - 1);
-        proxyList.port[proxyList.coCacheNum][p3 - p2 - 1] = '\0';
-
-        proxyList.coCacheNum++;
-
+        fclose(f);
     }
-    fclose(f);
     return proxyList;
 }

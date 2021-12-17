@@ -223,6 +223,7 @@ int ForwardSSLMsg(int srcSock, int dstSock, struct ProxyList* proxyList, int buf
                             continue;
                         }
 
+                        bzero(buf, MaxUrlLength);
                         n = read(socket, buf, MaxUrlLength);
                         if(n <= 0){
                             break;
@@ -233,6 +234,8 @@ int ForwardSSLMsg(int srcSock, int dstSock, struct ProxyList* proxyList, int buf
                             proxyList->socket[k] = -1;
                             break;
                         }
+
+                        // n = SSL_write(srcSSL, buf, n);
 
                         printf("get cached content from other proxy (socket: %d)\n", socket);
                         // return 0;
