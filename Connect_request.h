@@ -27,6 +27,7 @@ int ConnectConduct(struct RequestInfo *requestInfo, int sock); // establish TCP 
 int ForwardMsg(int srcSock, int dstSock, int length, char* buf); // forward messages from srcSock to dstSock; return the length of message.
 int ForwardHeader(int srcSock, int dstSock, unsigned char *buf);
 int MForwardHeader(int srcSock, int dstSock, unsigned char *buf);
-int ForwardSSLMsg(int srcSock, int dstSock, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf, struct MyCache* myCache);                     
+int ForwardSSLMsg(int srcSock, int dstSock, struct ProxyList* proxyList, int bufSize, int ClientNum, struct SSL_Client ***myclient_p, struct SSL_Client **myclient_log, char* buf, struct MyCache* myCache);                     
+int makeTCPConnection(char* host, int port);
 
 #endif // MY_CONNECT_
