@@ -9,7 +9,7 @@ sudo apt upgrade
 sudo apt-get install libssl-dev
 ```
 
-## Configuration of browser
+## Configuration of Browser
 Before using proxy, set up the browser first. Take Firefox as an example:
 ```bash
 Enter "about:config" into the address bar, proceed and search:    
@@ -35,6 +35,7 @@ make
 ```bash
 Put "cache_server.txt" into the same directory as the main program.
 Format: [host:port] (square brackets are needed)
+Each proxy occupies a separate line.
 Put a blank line at the end of file.
 ```
 
