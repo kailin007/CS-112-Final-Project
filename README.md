@@ -32,12 +32,18 @@ make
 ```
 
 ## Cooperative Cache Server Configuration
-```bash
 Put "cache_server.txt" into the same directory as the main program.
 Format: [host:port] (square brackets are needed)
+e.g.:
+```bash
+[localhost:8080]
+[localhost:9150]
+[localhost:0909]
+
+```
 Each proxy occupies a separate line.
 Put a blank line at the end of file.
-```
+
 
 ## Contributing
 Jieling Cai, Kailin Zhang, Xiaoxiong Huang
