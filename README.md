@@ -38,7 +38,7 @@ Format: [host:port] (square brackets are needed), e.g.:
 [localhost:8080]
 [localhost:9150]
 [localhost:0909]
-
+ 
 ```
 Each proxy occupies a separate line.
 Put a blank line at the end of file.
