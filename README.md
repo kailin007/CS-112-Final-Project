@@ -31,5 +31,12 @@ make
 ./a.out port Flage Blocklist
 ```
 
+## Cooperative Cache Server Configuration
+```bash
+Put "cache_server.txt" into the same directory as the main program.
+Format: [host:port] (square brackets are needed)
+Put a blank line at the end of file.
+```
+
 ## Contributing
 Jieling Cai, Kailin Zhang, Xiaoxiong Huang
