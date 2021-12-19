@@ -32,7 +32,7 @@ make
 ```
 
 ## Cooperative Cache Server Configuration
-Put "cache_server.txt" into the same directory as the main program.
+Put "cache_server.txt" into the same directory as the main program.  
 Format: [host:port] (square brackets are needed)  
 e.g.:
 ```bash
