@@ -8,7 +8,7 @@ Step2: change the "LD_LIBRARY_PATH" & "PKG_CONFIG_PATH" to your own directory in
 Step3: change the "INC" & LIB" to your own directory in the Makefile
        and run it to complie test files using command "make"
 
-Step4: open the proxy and run command "./out" to start automated testing 
+Step4: open the proxy(e.g. "./a.out 9021 0 NA 1000000") and run command "./out" to start automated testing 
 
 Step5: the output results will be included in the "results" directory, which are the two files with ".xml" format.
        Then use IE browser to open the two files to see the results (other browers may not work)

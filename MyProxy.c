@@ -28,12 +28,12 @@
 
 #define CacheSize 100
 #define CacheKeySize 3000
-#define BUFSIZE 3000  // request buffer/header front 5 bytes
+#define BUFSIZE 3000  // request buffer
 #define MESSIZE 5242880 // cache object size = 5 MB
 #define MsgBufSize 30000  // forward Msg size 
 #define DefaultMaxAge 600
-#define ClientCapacity 500
-#define sslCapacity 500
+#define ClientCapacity 1000
+#define sslCapacity 1000
 #define blocklistSize 1000
 
 void LoadCertificates(SSL_CTX* ctx, char* KeyFile, char* CertFile)
@@ -338,45 +338,12 @@ int main(int argc, char **argv)
                             continue;
                         }
                         else{// if this is a normal proxy
-                            bzero(buf, BUFSIZE);
-                            n = read(sock, buf, 1);
-                            //if the client close the connection/read call error
-                            if (n <= 0)
-                            {   
+                            int msgBytes = ForwardMsg(sock, statuscode, MsgBufSize, Msgbuf);
+                            if (msgBytes <= 0)
+                            {
                                 ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
                                 ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
                                 continue;
-                            }
-
-                            int length = MForwardHeader(sock, statuscode, buf); 
-                            printf("Message Length = %d\n",length);
-                            int needToSent = length;
-                            while (needToSent > 0)
-                            {
-                                if (needToSent <= MsgBufSize)
-                                {   
-                                    bzero(Msgbuf,MsgBufSize);
-                                    int msgBytes = ForwardMsg(sock, statuscode, needToSent, Msgbuf);
-                                    if (msgBytes <= 0)
-                                    {
-                                        ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
-                                        ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
-                                        break;
-                                    }
-                                    needToSent -= msgBytes;
-                                }
-                                else
-                                {   
-                                    bzero(Msgbuf,MsgBufSize);
-                                    int msgBytes = ForwardMsg(sock, statuscode, MsgBufSize, Msgbuf);
-                                    if (msgBytes <= 0)
-                                    {
-                                        ClientNum = Remove_client(sock, ClientNum, my_client_log, my_client_p, &master_set);
-                                        ClientNum = Remove_client(statuscode, ClientNum, my_client_log, my_client_p, &master_set);
-                                        break;
-                                    }
-                                    needToSent -= msgBytes;
-                                }
                             }
                             continue;
                         }

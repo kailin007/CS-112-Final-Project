@@ -86,18 +86,16 @@ int MForwardHeader(int srcSock, int dstSock, unsigned char *buf)
 int ForwardMsg(int srcSock, int dstSock, int length, char* buf){
     int n;
     int recved = 0;
-    while (recved < length)
-    {
-        n = read(srcSock, buf + recved, length - recved);
-        recved += n;
-    }
+
+    printf("Forward: source socket: %d, destination socket:%d\n",srcSock,dstSock);
+    n = read(srcSock, buf, length);
     
     if(n<=0){
         printf("CONNECT: error reading from socket %d\n", srcSock);
         return -1;
     }
-
-    n = write(dstSock, buf, length);
+    n = write(dstSock, buf, n);
+    
     if(n<=0){
         printf("CONNECT: error writing to socket %d\n", dstSock);
         return -1;
